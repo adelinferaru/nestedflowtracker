@@ -67,6 +67,21 @@ class NestedFlowTracker
     }
 
 
+    public static function getDBConnection() {
+        if(self::$db_connection == null) {
+            $db_connection = config('nestedflowtracker.db_connection');
+            if($db_connection == "default") {
+                self::$db_connection = \Config::get('database.default');
+            }
+            else {
+                self::$db_connection = $db_connection;
+            }
+        }
+
+        return self::$db_connection;
+    }
+
+
     /**
      * @param $message
      * @param null $parent_id
@@ -79,20 +94,11 @@ class NestedFlowTracker
         self::startTimer($trackerName);
 
         // Get Database connection
-        if(self::$db_connection == null) {
-            $db_connection = config('nestedflowtracker.db_connection');
-            if($db_connection == "default") {
-                self::$db_connection = \Config::get('database.default');
-            }
-            else {
-                self::$db_connection = $db_connection;
-            }
-        }
-
+        $db_connection = self::getDBConnection();
 
         // Create a FNTrack instance
         $tracker = new FNTrack();
-        $tracker->setConnection(self::$db_connection);
+        $tracker->setConnection($db_connection);
 
         // Try to set Tracker_ID
         if(isset($settings['tracker_id']) && !empty($settings['tracker_id'])) {
