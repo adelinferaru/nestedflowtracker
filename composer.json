@@ -1,7 +1,7 @@
 {
     "name": "adelinferaru/nestedflowtracker",
     "description": "Laravel package that helps tracking nested execution flows.",
-    "license": "license",
+    "license": "MIT",
     "authors": [
         {
             "name": "Feraru Ioan Adelin",
