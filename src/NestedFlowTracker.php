@@ -158,6 +158,11 @@ class NestedFlowTracker
             }
         }
 
+        // Set this tracker as a child of another tracker
+        if (isset($settings['parent_id']) && !empty($settings['parent_id'])) {
+            $tracker->parent_id = $settings['parent_id'];
+        }
+
         /*if(! is_null($parent_id)) {
             $tracker->parent_id = $parent_id;
         }*/
@@ -168,6 +173,17 @@ class NestedFlowTracker
         self::$tracks_queue [] = $tracker;
 
         return $tracker;
+    }
+
+    /**
+     * @param $parent_id
+     * @param bool $save - True to save the model. Default is False.
+     */
+    public static function setParentId($parent_id, $save = false) {
+        $tracker = end(self::$tracks_queue);
+        $tracker->parent_id = $parent_id;
+
+        if($save) $tracker->save();
     }
 
 
