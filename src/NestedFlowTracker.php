@@ -106,6 +106,20 @@ class NestedFlowTracker
             self::setTrackerId($settings['tracker_id']);
         }
         else {
+            if(self::$tracker_id) {
+                $tracker->tracker_id = self::$tracker_id;
+            }
+            else {
+                if(session('tracker_id')) {
+                    $tracker->tracker_id = session('tracker_id');
+
+                }
+                else {
+                    $tracker->tracker_id = hexdec(uniqid());
+                }
+
+                self::setTrackerId($tracker->tracker_id);
+            }
             $tracker->tracker_id = self::$tracker_id ? self::$tracker_id : (session('tracker_id') ? session('tracker_id') : hexdec(uniqid()));
         }
 
