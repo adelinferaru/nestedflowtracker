@@ -140,7 +140,7 @@ class NestedFlowTracker
         }
 
         // Set a message if exists
-        if($message !== null && trim($message) != "") {
+        if($message !== null) {
             $tracker->message = is_array($message) ? json_encode($message) : $message;
         }
         else {
