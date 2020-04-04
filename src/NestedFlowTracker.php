@@ -106,6 +106,20 @@ class NestedFlowTracker
             self::setTrackerId($settings['tracker_id']);
         }
         else {
+            if(self::$tracker_id) {
+                $tracker->tracker_id = self::$tracker_id;
+            }
+            else {
+                if(session('tracker_id')) {
+                    $tracker->tracker_id = session('tracker_id');
+
+                }
+                else {
+                    $tracker->tracker_id = hexdec(uniqid());
+                }
+
+                self::setTrackerId($tracker->tracker_id);
+            }
             $tracker->tracker_id = self::$tracker_id ? self::$tracker_id : (session('tracker_id') ? session('tracker_id') : hexdec(uniqid()));
         }
 
@@ -126,7 +140,7 @@ class NestedFlowTracker
         }
 
         // Set a message if exists
-        if($message !== null && trim($message) != "") {
+        if($message !== null) {
             $tracker->message = is_array($message) ? json_encode($message) : $message;
         }
         else {
@@ -158,6 +172,11 @@ class NestedFlowTracker
             }
         }
 
+        // Set this tracker as a child of another tracker
+        if (isset($settings['parent_id']) && !empty($settings['parent_id'])) {
+            $tracker->parent_id = $settings['parent_id'];
+        }
+
         /*if(! is_null($parent_id)) {
             $tracker->parent_id = $parent_id;
         }*/
@@ -168,6 +187,17 @@ class NestedFlowTracker
         self::$tracks_queue [] = $tracker;
 
         return $tracker;
+    }
+
+    /**
+     * @param $parent_id
+     * @param bool $save - True to save the model. Default is False.
+     */
+    public static function setParentId($parent_id, $save = false) {
+        $tracker = end(self::$tracks_queue);
+        $tracker->parent_id = $parent_id;
+
+        if($save) $tracker->save();
     }
 
 

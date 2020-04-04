@@ -70,7 +70,11 @@ class NestedFlowTrackerServiceProvider extends ServiceProvider
         ], 'nestedflowtracker.config');
 
 
-        $this->loadMigrationsFrom(__DIR__ . '/migrations');
+        $this->publishes([
+            __DIR__.'/migrations/' => database_path('migrations')
+        ], 'nestedflowtracker.migrations');
+
+        //$this->loadMigrationsFrom(__DIR__ . '/migrations');
 
         // Publishing the views.
         /*$this->publishes([
