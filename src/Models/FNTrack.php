@@ -1,6 +1,6 @@
 <?php
 
-namespace AdelinFeraru\NestedFlowTracker;
+namespace AdelinFeraru\NestedFlowTracker\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Kalnoy\Nestedset\NodeTrait;
