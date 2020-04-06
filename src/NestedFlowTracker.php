@@ -2,6 +2,8 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Models\FNTrack;
+
 class NestedFlowTracker
 {
     protected static $instance = null;
