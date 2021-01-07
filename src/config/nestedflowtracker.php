@@ -9,5 +9,10 @@ return [
     /*
      * Specify witch database connection to use
      * */
-    'db_connection' => env('FLOW_TRACKER_DB_CONNECTION', 'default')
+    'db_connection' => env('FLOW_TRACKER_DB_CONNECTION', 'default'),
+
+    /*
+     * Activates or deactivates the flow tracking
+     * */
+    'flow_tracker_active' => env('FLOW_TRACKER_ACTIVE', 0)
 ];
