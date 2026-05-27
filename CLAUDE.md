@@ -36,7 +36,7 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
 - `src/Http/Controllers/FlowViewerController.php` — viewer `index` (recent flows) + `show` (tree).
 - `src/resources/views/` — Blade viewer UI (`layout`, `index`, `show`, `partials/span`); no build step.
 - `src/TraceContext.php` — W3C `traceparent` value object (parse/build; our trace_id is 32-hex).
-- `src/Console/PruneCommand.php` (`flow:prune`) and `ShowFlowCommand.php` (`flow:show {trace}`).
+- `src/Console/` — `flow:prune`, `flow:show {trace}`, `flow:benchmark` (overhead per driver).
 - `src/Otel/OtelExporter.php` (builds OTLP-JSON, POSTs to `{endpoint}/v1/traces`) and
   `ExportTrace.php` (queued job exporting one completed flow). No OTel SDK dependency.
 - `src/FlowServiceProvider.php` — registers the scoped `FlowTracker`, merges config, loads views +
@@ -45,7 +45,7 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
   auto-instrumentation (HTTP middleware via the kernel's group + queue listeners) and viewer routes.
 - `src/config/flow.php` — config (`enabled`, `component`, `connection`, `auto.*`, `viewer.*`).
 - `src/migrations/` — `create_flow_spans_table`, `add_otel_columns_to_flow_spans` (2.1: `span_id`,
-  `started_at`), `add_parent_span_id_to_flow_spans` (2.2).
+  `started_at`), `add_parent_span_id_to_flow_spans` (2.2), `add_created_at_index_to_flow_spans` (2.3).
 - `tests/` — `orchestra/testbench` suite (`tests/Fixtures/` holds job fixtures). `phpstan.neon`
   (level 6, no baseline); `.github/workflows/ci.yml`.
 
