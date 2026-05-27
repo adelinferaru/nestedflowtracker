@@ -35,6 +35,8 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
 - `src/Http/Middleware/TrackRequest.php` — wraps each HTTP request in a root span (opt-in).
 - `src/Http/Middleware/Authorize.php` — guards the viewer (local env, or a `viewFlow` gate).
 - `src/Http/Controllers/FlowViewerController.php` — viewer `index` (recent flows) + `show` (tree).
+- `src/Http/Controllers/FlowApiController.php` — JSON read API (`api/flows`, `api/flows/{trace}`),
+  in the viewer route group.
 - `src/resources/views/` — Blade viewer UI (`layout`, `index`, `show`, `partials/span`); no build step.
 - `src/TraceContext.php` — W3C `traceparent` value object (parse/build; our trace_id is 32-hex).
 - `src/Console/` — `flow:prune`, `flow:show {trace}`, `flow:benchmark` (overhead per driver).

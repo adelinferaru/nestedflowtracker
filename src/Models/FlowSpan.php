@@ -25,6 +25,8 @@ use Kalnoy\Nestedset\NodeTrait;
  * @property int|null $parent_id
  * @property int $_lft
  * @property int $_rgt
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  */
 class FlowSpan extends Model
 {

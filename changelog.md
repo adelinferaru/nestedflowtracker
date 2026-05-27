@@ -3,6 +3,13 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [2.5.0] - 2026-05-27
+
+### Added
+- JSON read API for the viewer: `GET {path}/api/flows` (paginated list with component/status
+  filters) and `GET {path}/api/flows/{trace}` (a flow as a nested span tree). Served from the
+  viewer route group, so it shares the viewer's enable flag, `viewFlow` gate, and middleware.
+
 ## [2.4.0] - 2026-05-27
 
 ### Added
@@ -88,6 +95,7 @@ auto-instrumentation, a built-in viewer, and W3C Trace Context propagation.
 
 - Initial release with the static `NestedFlowTracker::startTrack()` / `endTrack()` API.
 
+[2.5.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.5.0
 [2.4.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.4.0
 [2.3.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.3.0
 [2.2.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.2.0

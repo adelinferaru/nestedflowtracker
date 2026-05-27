@@ -13,6 +13,7 @@ use AdelinFeraru\NestedFlowTracker\Drivers\OtelDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
+use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowApiController;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\Authorize;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\TrackRequest;
@@ -138,6 +139,8 @@ class FlowServiceProvider extends ServiceProvider
                 [Authorize::class],
             ),
         ], function () {
+            Route::get('/api/flows', [FlowApiController::class, 'index'])->name('flow.api.index');
+            Route::get('/api/flows/{trace}', [FlowApiController::class, 'show'])->name('flow.api.show');
             Route::get('/', [FlowViewerController::class, 'index'])->name('flow.index');
             Route::get('/{trace}', [FlowViewerController::class, 'show'])->name('flow.show');
         });
