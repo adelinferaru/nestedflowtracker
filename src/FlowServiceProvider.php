@@ -2,12 +2,15 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowViewerController;
+use AdelinFeraru\NestedFlowTracker\Http\Middleware\Authorize;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\TrackRequest;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class FlowServiceProvider extends ServiceProvider
@@ -30,6 +33,7 @@ class FlowServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/migrations');
+        $this->loadViewsFrom(__DIR__ . '/resources/views', 'flow');
 
         $config = $this->app['config'];
 
@@ -41,6 +45,10 @@ class FlowServiceProvider extends ServiceProvider
             $this->registerQueueInstrumentation();
         }
 
+        if ($config->get('flow.viewer.enabled')) {
+            $this->registerViewer();
+        }
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/config/flow.php' => config_path('flow.php'),
@@ -49,7 +57,30 @@ class FlowServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/migrations/' => database_path('migrations'),
             ], 'flow-migrations');
+
+            $this->publishes([
+                __DIR__ . '/resources/views' => base_path('resources/views/vendor/flow'),
+            ], 'flow-views');
         }
+    }
+
+    /**
+     * Register the viewer routes and views.
+     */
+    private function registerViewer(): void
+    {
+        $config = $this->app['config'];
+
+        Route::group([
+            'prefix' => $config->get('flow.viewer.path', 'flow'),
+            'middleware' => array_merge(
+                (array) $config->get('flow.viewer.middleware', ['web']),
+                [Authorize::class],
+            ),
+        ], function () {
+            Route::get('/', [FlowViewerController::class, 'index'])->name('flow.index');
+            Route::get('/{trace}', [FlowViewerController::class, 'show'])->name('flow.show');
+        });
     }
 
     /**

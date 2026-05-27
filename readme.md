@@ -134,6 +134,31 @@ FLOW_AUTO_QUEUE=true   # a root span per queued job
 
 Both default to off, so installing the package never silently writes spans.
 
+## Viewer
+
+A small built-in UI to browse recorded flows as timed trees — no build step, no assets to compile.
+Enable it and visit `/flow`:
+
+```dotenv
+FLOW_VIEWER=true
+```
+
+- **Index** (`/flow`) — recent flows with their component, status and duration; filter by
+  component/status.
+- **Detail** (`/flow/{trace}`) — the flow rendered as a collapsible tree with duration bars and
+  failed spans highlighted.
+
+**Access control:** the viewer is reachable automatically in the `local` environment. In any other
+environment you must define a `viewFlow` gate to grant access:
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('viewFlow', fn ($user) => $user->isAdmin());
+```
+
+Publish the views to customize them: `php artisan vendor:publish --tag="flow-views"`.
+
 ## Configuration
 
 | Env | Config key | Default | Description |
@@ -143,6 +168,8 @@ Both default to off, so installing the package never silently writes spans.
 | `FLOW_CONNECTION` | `flow.connection` | `null` | Connection for the `flow_spans` table (null = default). |
 | `FLOW_AUTO_HTTP` | `flow.auto.http` | `false` | Auto root span per HTTP request. |
 | `FLOW_AUTO_QUEUE` | `flow.auto.queue` | `false` | Auto root span per queued job. |
+| `FLOW_VIEWER` | `flow.viewer.enabled` | `false` | Register the built-in viewer routes. |
+| `FLOW_VIEWER_PATH` | `flow.viewer.path` | `flow` | URL prefix for the viewer. |
 
 ## Testing
 
