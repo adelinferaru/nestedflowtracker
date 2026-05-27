@@ -25,6 +25,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Storage driver
+    |--------------------------------------------------------------------------
+    |
+    | Where finished spans go:
+    |   - database: store as a tree (enables the viewer + artisan commands).
+    |   - log:      write each span as a structured log line (no database).
+    |   - null:     discard (API stays on, nothing stored).
+    |   - otel:     send straight to an OTLP/HTTP collector (no database).
+    |
+    | The viewer, `flow:show`/`flow:prune`, and the `flow.otel` export below are
+    | database-only features.
+    |
+    */
+    'driver' => env('FLOW_DRIVER', 'database'),
+
+    /*
+    | Log channel used by the `log` driver (null = the default channel).
+    */
+    'log' => [
+        'channel' => env('FLOW_LOG_CHANNEL'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Database connection
     |--------------------------------------------------------------------------
     |

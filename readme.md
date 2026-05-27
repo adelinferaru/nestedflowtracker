@@ -179,6 +179,24 @@ Gate::define('viewFlow', fn ($user) => $user->isAdmin());
 
 Publish the views to customize them: `php artisan vendor:publish --tag="flow-views"`.
 
+## Storage drivers
+
+Choose where finished spans go with `flow.driver`:
+
+| Driver | Stores spans as | Viewer / `flow:*` |
+| --- | --- | --- |
+| `database` (default) | a tree in your database | ✅ |
+| `log` | structured log lines (`flow.log.channel`) | — |
+| `null` | discarded (API stays on) | — |
+| `otel` | sent straight to an OTLP collector, no DB | — |
+
+```dotenv
+FLOW_DRIVER=database   # database | log | null | otel
+```
+
+The viewer, the artisan commands, and the `flow.otel` export below are **database-only** features
+(they read from the `flow_spans` table). The `log`, `null`, and `otel` drivers are emit-only.
+
 ## OpenTelemetry export
 
 Already running an OpenTelemetry Collector, Jaeger, or Grafana Tempo? Ship completed flows there
@@ -190,8 +208,12 @@ FLOW_OTEL_ENABLED=true
 FLOW_OTEL_ENDPOINT=http://localhost:4318   # spans are sent to {endpoint}/v1/traces
 ```
 
-> Upgrading from 2.0? OTel export needs the `span_id` / `started_at` columns — re-publish and run
-> migrations: `php artisan vendor:publish --tag="flow-migrations" && php artisan migrate`.
+This is the database path: spans are stored *and* exported. If you don't want to store them at
+all, use the `otel` storage driver above (`FLOW_DRIVER=otel`), which sends spans straight to the
+collector with no database.
+
+> Upgrading from an earlier 2.x? Re-publish and run migrations after upgrading:
+> `php artisan vendor:publish --tag="flow-migrations" && php artisan migrate`.
 > Run a queue worker so exports happen off the request.
 
 ## Configuration
@@ -200,6 +222,8 @@ FLOW_OTEL_ENDPOINT=http://localhost:4318   # spans are sent to {endpoint}/v1/tra
 | --- | --- | --- | --- |
 | `FLOW_ENABLED` | `flow.enabled` | `true` | Master switch. When off, `span()` runs your callback transparently and stores nothing. |
 | `FLOW_COMPONENT` | `flow.component` | `app` | Name of this application/service, stored on every span. |
+| `FLOW_DRIVER` | `flow.driver` | `database` | Storage driver: `database` / `log` / `null` / `otel`. |
+| `FLOW_LOG_CHANNEL` | `flow.log.channel` | `null` | Log channel for the `log` driver (null = default). |
 | `FLOW_CONNECTION` | `flow.connection` | `null` | Connection for the `flow_spans` table (null = default). |
 | `FLOW_AUTO_HTTP` | `flow.auto.http` | `false` | Auto root span per HTTP request. |
 | `FLOW_AUTO_QUEUE` | `flow.auto.queue` | `false` | Auto root span per queued job. |

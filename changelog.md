@@ -3,6 +3,19 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [2.2.0] - 2026-05-27
+
+### Added
+- **Pluggable storage drivers** via `flow.driver`: `database` (default; the nested-set store that
+  powers the viewer and commands), `log` (structured log lines), `null` (discard), and `otel`
+  (send spans straight to an OTLP collector with no database). `FlowTracker` now delegates
+  persistence to a `SpanDriver`.
+- `parent_span_id` column on `flow_spans` so parent linkage works without database row ids
+  (enables the non-database drivers and simplifies OTLP export).
+
+### Upgrade notes
+- Run the new migration: `php artisan vendor:publish --tag="flow-migrations" && php artisan migrate`.
+
 ## [2.1.0] - 2026-05-27
 
 ### Added
@@ -52,5 +65,6 @@ auto-instrumentation, a built-in viewer, and W3C Trace Context propagation.
 
 - Initial release with the static `NestedFlowTracker::startTrack()` / `endTrack()` API.
 
+[2.2.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.2.0
 [2.1.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.1.0
 [2.0.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.0.0

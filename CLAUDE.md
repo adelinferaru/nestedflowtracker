@@ -20,7 +20,11 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
 
 - `src/FlowTracker.php` — the core **instance-based** service. Holds per-flow state (open-spans
   stack, `traceId`, `userId`) and the API: `span()`, `start()`/`end()`, `fail()`, `currentSpan()`,
-  `traceId()`/`setTraceId()`, `setUser()`, `enabled()`, `flush()`. Bound **scoped** in the container.
+  `traceId()`/`setTraceId()`, `setUser()`, `enabled()`, `flush()`. Bound **scoped**. Persistence is
+  delegated to a `SpanDriver` (it no longer touches the DB directly).
+- `src/Drivers/` — `SpanDriver` interface + `DatabaseDriver` (nested-set, full features),
+  `LogDriver`, `NullDriver`, `OtelDriver` (buffers in memory, emits on root close). Active driver
+  resolved from `flow.driver`.
 - `src/Models/FlowSpan.php` — Eloquent model for `flow_spans`; `kalnoy/nestedset` `NodeTrait` for
   the tree; casts `status` (enum), `context`/`result` (array), `duration` (float).
 - `src/Enums/SpanStatus.php` — `Running` / `Ok` / `Failed`.
@@ -40,8 +44,8 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
   registers the `Http::withFlowTrace()` macro + artisan commands, and wires opt-in
   auto-instrumentation (HTTP middleware via the kernel's group + queue listeners) and viewer routes.
 - `src/config/flow.php` — config (`enabled`, `component`, `connection`, `auto.*`, `viewer.*`).
-- `src/migrations/` — `create_flow_spans_table` + `add_otel_columns_to_flow_spans` (2.1: `span_id`,
-  `started_at`).
+- `src/migrations/` — `create_flow_spans_table`, `add_otel_columns_to_flow_spans` (2.1: `span_id`,
+  `started_at`), `add_parent_span_id_to_flow_spans` (2.2).
 - `tests/` — `orchestra/testbench` suite (`tests/Fixtures/` holds job fixtures). `phpstan.neon`
   (level 6, no baseline); `.github/workflows/ci.yml`.
 
@@ -62,6 +66,10 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
   `options['trace_id']` to continue an inbound flow across apps.
 - The service is bound with `$app->scoped(...)`, so each HTTP request / queued job gets a fresh
   instance and state is flushed between them under Octane.
+- **Storage driver (`flow.driver`):** `FlowTracker` builds an in-memory `FlowSpan` and calls
+  `$driver->opening()/closing()`. Parent linkage is by `parent_span_id` (16-hex), so non-DB drivers
+  don't need row ids. `database` persists (nested-set; enables viewer + commands + the DB OTel
+  export); `log`/`null`/`otel` are emit-only (those DB-backed features don't apply).
 - Disabled (`flow.enabled = false`): `span()` becomes a transparent pass-through (runs the
   callback, returns its value); `start()`/`end()` are no-ops; nothing is written.
 - **Cross-app propagation (W3C Trace Context):** outbound via the `Http::withFlowTrace()` macro
@@ -97,6 +105,8 @@ flow()->span('charge card', fn () => $gateway->charge($card));
 
 - `FLOW_ENABLED` — master switch (default `true`).
 - `FLOW_COMPONENT` — name of this app/service, stored on every span (default `app`).
+- `FLOW_DRIVER` — storage driver `database`|`log`|`null`|`otel` (default `database`);
+  `FLOW_LOG_CHANNEL` for the log driver.
 - `FLOW_CONNECTION` — DB connection for `flow_spans` (null = default; or a named connection).
 - `FLOW_AUTO_HTTP` / `FLOW_AUTO_QUEUE` — opt-in auto-instrumentation (default `false`).
 - `FLOW_OTEL_ENABLED` / `FLOW_OTEL_ENDPOINT` — opt-in OTLP/HTTP export (default off).

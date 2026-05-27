@@ -2,6 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Events\SpanStarted;
@@ -28,6 +29,7 @@ class FlowTracker
     public function __construct(
         private readonly Config $config,
         private readonly Events $events,
+        private readonly SpanDriver $driver,
     ) {
     }
 
@@ -109,19 +111,21 @@ class FlowTracker
         }
 
         // Nest under the currently open span unless flagged as a root.
-        $parent = $this->currentSpan();
-        if ($parent !== null && empty($options['root'])) {
+        $parent = empty($options['root']) ? $this->currentSpan() : null;
+        if ($parent !== null) {
             $span->trace_id = $parent->trace_id;
-            $span->appendToNode($parent);
+            $span->parent_span_id = $parent->span_id;
         } else {
             $span->trace_id = $this->traceId ??= $this->newTraceId();
         }
 
+        // An explicit parent_id attaches the span to that node (database driver).
         if (! empty($options['parent_id'])) {
             $span->parent_id = $options['parent_id'];
         }
 
-        $span->save();
+        // The driver decides how/whether to persist the span and place it in the tree.
+        $this->driver->opening($span, $parent);
 
         $this->stack[] = ['span' => $span, 'start' => $start];
 
@@ -155,7 +159,7 @@ class FlowTracker
             }
         }
 
-        $span->save();
+        $this->driver->closing($span);
 
         $this->events->dispatch(new SpanFinished($span));
 

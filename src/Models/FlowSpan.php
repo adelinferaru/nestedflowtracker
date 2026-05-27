@@ -12,6 +12,7 @@ use Kalnoy\Nestedset\NodeTrait;
  * @property int $id
  * @property string $trace_id
  * @property string|null $span_id 16-hex W3C/OpenTelemetry span id.
+ * @property string|null $parent_span_id 16-hex span id of the enclosing span.
  * @property string $name
  * @property string $component
  * @property int|string|null $user_id

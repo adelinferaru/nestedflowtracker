@@ -4,7 +4,13 @@ namespace AdelinFeraru\NestedFlowTracker;
 
 use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
 use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
+use AdelinFeraru\NestedFlowTracker\Drivers\DatabaseDriver;
+use AdelinFeraru\NestedFlowTracker\Drivers\LogDriver;
+use AdelinFeraru\NestedFlowTracker\Drivers\NullDriver;
+use AdelinFeraru\NestedFlowTracker\Drivers\OtelDriver;
+use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
+use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\Authorize;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\TrackRequest;
@@ -27,8 +33,19 @@ class FlowServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/config/flow.php', 'flow');
 
+        // Resolve the active storage driver from config. Scoped so the otel driver's
+        // in-memory buffer is per request/job.
+        $this->app->scoped(SpanDriver::class, function ($app) {
+            return match ($app['config']->get('flow.driver', 'database')) {
+                'log' => new LogDriver($app['config']),
+                'null' => new NullDriver(),
+                'otel' => new OtelDriver($app->make(OtelExporter::class)),
+                default => new DatabaseDriver(),
+            };
+        });
+
         // Scoped so each HTTP request / queued job gets a fresh tracker (state is
-        // flushed between them under Octane). Config + event dispatcher are autowired.
+        // flushed between them under Octane). Config + dispatcher + driver are autowired.
         $this->app->scoped(FlowTracker::class);
     }
 

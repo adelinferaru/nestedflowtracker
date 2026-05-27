@@ -18,15 +18,26 @@ class OtelExporter
     ) {
     }
 
+    /**
+     * Export a trace stored in the database (used by the queued ExportTrace job).
+     */
     public function export(string $traceId): void
+    {
+        $spans = FlowSpan::query()->where('trace_id', $traceId)->orderBy('_lft')->get();
+        if ($spans->isNotEmpty()) {
+            $this->exportSpans($spans);
+        }
+    }
+
+    /**
+     * Export a set of spans (database-loaded or in-memory) to the OTLP collector.
+     *
+     * @param iterable<FlowSpan> $spans
+     */
+    public function exportSpans(iterable $spans): void
     {
         $endpoint = $this->config->get('flow.otel.endpoint');
         if (empty($endpoint)) {
-            return;
-        }
-
-        $spans = FlowSpan::query()->where('trace_id', $traceId)->orderBy('_lft')->get();
-        if ($spans->isEmpty()) {
             return;
         }
 
@@ -39,16 +50,11 @@ class OtelExporter
     }
 
     /**
-     * @param \Illuminate\Database\Eloquent\Collection<int, FlowSpan> $spans
+     * @param iterable<FlowSpan> $spans
      * @return array<string, mixed>
      */
-    private function toOtlp($spans): array
+    private function toOtlp(iterable $spans): array
     {
-        $spanIdById = [];
-        foreach ($spans as $span) {
-            $spanIdById[$span->id] = $span->span_id;
-        }
-
         $otlpSpans = [];
         foreach ($spans as $span) {
             $start = $this->toNanos($span->started_at);
@@ -65,9 +71,8 @@ class OtelExporter
                 'attributes' => $this->attributes($span),
             ];
 
-            $parentSpanId = $span->parent_id !== null ? ($spanIdById[$span->parent_id] ?? null) : null;
-            if ($parentSpanId !== null) {
-                $otlpSpan['parentSpanId'] = $parentSpanId;
+            if ($span->parent_span_id !== null) {
+                $otlpSpan['parentSpanId'] = $span->parent_span_id;
             }
 
             $otlpSpans[] = $otlpSpan;
