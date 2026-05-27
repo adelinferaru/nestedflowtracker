@@ -1,15 +1,34 @@
 # NestedFlowTracker — 2.0 Roadmap
 
-Living document for the iterative upgrade effort. We work top-down: finish a phase (or a
-coherent slice of it) before moving on. Check items off as they land.
+Living document for the upgrade effort. We work top-down: finish a phase (or a coherent slice)
+before moving on. Check items off as they land.
+
+## Product vision (the north star)
+
+> **The zero-infra flow tracer for Laravel — wrap any block of code, see it as a timed tree,
+> across apps, stored in your own database.**
+
+Telescope traces framework internals in dev; OpenTelemetry needs collectors + a backend. Our
+wedge is the gap between them: **no infrastructure, works in production, traces *your* logical
+business flows, and ships with its own viewer.** We optimize for **adoption** — modern style,
+usefulness, and ease of use.
+
+The four pillars we build toward:
+1. **An API people enjoy** — closure spans (`Flow::span('name', fn () => …)`) that auto-close and
+   are exception-safe, killing the old LIFO start/end footgun by design. Helper + facade + DI.
+2. **Auto-instrumentation** — HTTP/queue middleware (a root span per request/job) and a
+   `#[Trace]` attribute, so users get value with zero manual calls.
+3. **A viewer** (the adoption driver) — a publishable, opt-in route rendering flows by trace id
+   as a collapsible tree / mini flame-graph. This is the README screenshot that sells it.
+4. **Interop** — W3C Trace Context (`traceparent`) propagation + an optional OpenTelemetry
+   exporter, so it scales up without forcing anyone onto OTel infra.
 
 **Direction (agreed):**
-- **Modernize, drop legacy** — target PHP **8.1+** and Laravel **10 / 11 / 12**; drop PHP 7.x and Laravel 5–9.
-- **Breaking changes allowed** — this is a **2.0**. We may redesign the API and internal state.
-- **Correctness & tests first** — establish a safety net before refactoring.
-
-**Guiding principle:** lock current behavior with characterization tests *before* rewriting,
-so the big refactor (Phase 3) is done against a green suite rather than blind.
+- **Modernize, drop legacy** — PHP **8.1+**, Laravel **10 / 11 / 12**.
+- **No backward-compatibility constraint** — nobody depends on this yet, so we redesign the
+  public API freely and pick clean, conventional names (`Flow`, `flow()`, `trace_id`, `FlowSpan`).
+- **Tests track the design** — Phases 1–2 used characterization tests to refactor safely; from
+  Phase 3 on, tests specify the *new* behavior.
 
 ---
 
@@ -65,38 +84,52 @@ Now that behavior is pinned, raise the floor.
       `__construct`/`__clone`/`__wakeup`) and commented blocks are gone.
 - [x] **Bonus:** raised PHPStan to **level 6** (still clean, no baseline).
 
-## Phase 3 — Architecture redesign (the 2.0 core)
-The substantive refactor. Done against the green test suite from Phase 1.
+## Phase 3 — Modern core + span API  *(done)*
+Pillar 1. The injectable, Octane-safe engine and the API people enjoy. **Scope: core only** —
+middleware/attributes/viewer/OTel come in later phases.
 
-- [ ] **Eliminate global mutable static state.** Convert `NestedFlowTracker` to a proper
-      injectable, instance-based service resolved from the container (facade kept as a thin
-      shim for ergonomics). The `$timers`/`$tracks_queue` stack becomes per-instance state.
-- [ ] Reconsider the request-scoped lifecycle: the stack and `tracker_id` should be tied to a
-      request/context, not process-global statics (important for queues/Octane/long-running workers).
-- [ ] Design a cleaner public API for 2.0 (consider a fluent/`span()` + closure form that
-      auto-closes, removing the need for balanced manual `endTrack` calls), while keeping
-      `startTrack`/`endTrack` available.
-- [ ] Make the model/table configurable; ensure custom DB connection path is first-class.
-- [ ] Octane / long-running-process safety review.
+- [x] **Injectable `FlowTracker` service** — all per-flow state (open-spans stack, `traceId`,
+      `userId`) is instance state; no process-global statics. Config + event dispatcher injected.
+- [x] **Container-scoped binding** (`$app->scoped`) so each request/job gets a fresh instance;
+      verified that testbench's per-test refresh isolates state with no reflection reset.
+- [x] **`span(name, closure)`** — opens/closes around the callback, **exception-safe** (`finally`),
+      returns the value, marks failed spans (records the exception). The recommended API.
+- [x] **Manual `start()`/`end()`** kept (LIFO, instance-based). Each span stores its own start
+      time on the stack, so duration no longer depends on a name lookup — the old footgun is gone.
+- [x] **Ergonomic surface:** `Flow` facade (`@method` docblocks) + `flow()` helper + DI.
+- [x] **Events** `SpanStarted` / `SpanFinished`; **`SpanStatus`** enum (running/ok/failed).
+- [x] Clean data model: `FlowSpan`, `flow_spans` table, `trace_id` (32-hex, OTel-style), `name`,
+      `status`, JSON-cast `context`/`result`; `config/flow.php` (`enabled`, `component`,
+      `connection`). Old `NestedFlowTracker` class/facade and the session coupling are gone.
+- [x] New behavioral test suite (21 tests) specifying the above; PHPStan level 6 stays clean.
+      CLAUDE.md + README rewritten for the new API.
 
-## Phase 4 — Performance & optimization
-- [ ] Reduce per-track overhead; make tracking near-zero-cost when inactive.
-- [ ] Batch / defer DB writes (option to flush at end of request, or push to a queue) instead
-      of a write per start and per end.
-- [ ] Review nested-set write cost; index review on `fn_flow_tracks`.
-- [ ] Benchmark before/after with a repeatable harness.
+## Phase 4 — Auto-instrumentation
+Pillar 2. Value with zero manual calls.
 
-## Phase 5 — Features & enhancements
-- [ ] Querying/reporting API to read back a flow tree (and render it) by `tracker_id`.
-- [ ] Optional HTTP middleware to auto-start/stop a root track per request.
-- [ ] Helpers to propagate `tracker_id`/parent across outbound HTTP calls (header convention).
-- [ ] Pluggable storage drivers (DB now; log/null/others later).
-- [ ] Artisan commands (e.g. prune old tracks, inspect a flow).
+- [ ] HTTP middleware: a root span per request (method + path), failed on 5xx/exception.
+- [ ] Queue middleware / listeners: a span per job.
+- [ ] `#[Trace]` method attribute.
+- [ ] Near-zero overhead when disabled; batch/defer DB writes (flush at end of request).
 
-## Phase 6 — Release
-- [ ] Full docs rewrite (README + upgrade guide 1.x → 2.0).
-- [ ] Finalize `changelog.md`, tag `2.0.0`, update Packagist.
-- [ ] Keep a maintenance `1.x` branch for legacy users.
+## Phase 5 — The viewer (adoption driver)
+Pillar 3. Make the data *visible*.
+
+- [ ] Publishable, opt-in route + UI rendering a flow by `trace_id` as a collapsible tree /
+      mini flame-graph with durations and the slow/failed path highlighted.
+- [ ] Index/list view (recent flows, filter by component/status/user), read/query API.
+- [ ] Artisan commands (inspect a flow, prune old spans).
+
+## Phase 6 — Interop & performance
+Pillar 4 + hardening.
+
+- [ ] W3C Trace Context (`traceparent`) propagation in/out across apps and outbound HTTP.
+- [ ] Optional OpenTelemetry exporter.
+- [ ] Pluggable storage drivers (DB now; log/null/OTel later); index/perf review; benchmarks.
+
+## Phase 7 — Release & launch
+- [ ] Docs site / rich README with the viewer screenshot; quickstart.
+- [ ] `changelog.md`, tag `2.0.0`, Packagist, announcement.
 
 ---
 

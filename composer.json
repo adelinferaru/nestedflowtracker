@@ -24,7 +24,10 @@
     "autoload": {
         "psr-4": {
             "AdelinFeraru\\NestedFlowTracker\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -41,10 +44,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "AdelinFeraru\\NestedFlowTracker\\NestedFlowTrackerServiceProvider"
+                "AdelinFeraru\\NestedFlowTracker\\FlowServiceProvider"
             ],
             "aliases": {
-                "NestedFlowTracker": "AdelinFeraru\\NestedFlowTracker\\Facades\\NestedFlowTracker"
+                "Flow": "AdelinFeraru\\NestedFlowTracker\\Facades\\Flow"
             }
         }
     }

@@ -4,81 +4,94 @@ Guidance for working in this repository.
 
 ## What this is
 
-`adelinferaru/nestedflowtracker` — a **Laravel package** for tracing/metering execution flows.
-It measures the time between a start point and an end point in code and persists each
-measurement as a node in a **tree** (nested set), so nested sub-flows are recorded with their
-parent/child relationships. A flow can span multiple applications via a shared `tracker_id`.
+`adelinferaru/nestedflowtracker` — a **Laravel package** for tracing application-level execution
+flows. You wrap a block of code in a *span*; the package times it and stores it as a node in a
+**tree** (nested set), so nested sub-operations are recorded with their parent/child structure.
+A flow can span multiple applications via a shared `trace_id`.
 
-This is a library/package (no app, no front-end). It is consumed by Laravel apps via Composer
-and Laravel package auto-discovery.
+Positioning (see `ROADMAP.md`): **the zero-infra flow tracer for Laravel** — no collectors/backend
+like OpenTelemetry, works in production, traces *your* business flows, and (in later phases) ships
+its own viewer. We optimize for adoption: modern style, usefulness, ease of use. No backward-compat
+constraint — nobody depends on this yet, so the API is designed clean.
+
+Library/package only (no app, no front-end yet). Consumed via Composer + Laravel auto-discovery.
 
 ## Layout
 
-- `src/NestedFlowTracker.php` — the core service. All logic lives here as **static** methods
-  (`startTrack`, `endTrack`, `getTrackerId`/`setTrackerId`, `startTimer`, timers, the tracks stack).
-- `src/Models/FNTrack.php` — Eloquent model for the `fn_flow_tracks` table; uses
-  `kalnoy/nestedset`'s `NodeTrait` to store the hierarchy.
-- `src/Facades/NestedFlowTracker.php` — facade resolving the `nestedflowtracker` singleton.
-- `src/NestedFlowTrackerServiceProvider.php` — registers the singleton, loads the migration,
-  and publishes config + migrations (tags `nestedflowtracker.config`, `nestedflowtracker.migrations`).
-- `src/config/nestedflowtracker.php` — config (env-driven, see below).
-- `src/migrations/2019_11_12_173835_create_fn_flow_tracks_tables.php` — creates `fn_flow_tracks`.
-- `tests/` — `orchestra/testbench` suite (`TestCase.php` base + tests). `phpstan.neon` +
-  `phpstan-baseline.neon` for static analysis; `.github/workflows/ci.yml` for CI.
+- `src/FlowTracker.php` — the core **instance-based** service. Holds per-flow state (open-spans
+  stack, `traceId`, `userId`) and the API: `span()`, `start()`/`end()`, `fail()`, `currentSpan()`,
+  `traceId()`/`setTraceId()`, `setUser()`, `enabled()`, `flush()`. Bound **scoped** in the container.
+- `src/Models/FlowSpan.php` — Eloquent model for `flow_spans`; `kalnoy/nestedset` `NodeTrait` for
+  the tree; casts `status` (enum), `context`/`result` (array), `duration` (float).
+- `src/Enums/SpanStatus.php` — `Running` / `Ok` / `Failed`.
+- `src/Events/SpanStarted.php`, `SpanFinished.php` — dispatched on open/close; each carries the span.
+- `src/Facades/Flow.php` — the `Flow` facade (with `@method` docblocks for IDE support).
+- `src/helpers.php` — the `flow()` helper (autoloaded via composer `files`).
+- `src/FlowServiceProvider.php` — registers the scoped `FlowTracker`, merges config, loads/publishes
+  migrations + config (`flow-config`, `flow-migrations` tags).
+- `src/config/flow.php` — config (`enabled`, `component`, `connection`).
+- `src/migrations/2026_05_27_000000_create_flow_spans_table.php` — creates `flow_spans`.
+- `tests/` — `orchestra/testbench` suite. `phpstan.neon` (level 6, no baseline); `.github/workflows/ci.yml`.
 
 ## How it works (the important mental model)
 
-- `startTrack($name, $message, $settings)` starts a `microtime` timer, creates an `FNTrack` row,
-  and **pushes it onto an internal static stack** (`$tracks_queue`).
-- While a track is open, the next `startTrack` is appended as a **child of the track on top of the
-  stack** (`appendToNode(...)`). This is what builds the nested tree — order of start/end calls
-  defines the hierarchy.
-- `endTrack($name, $settings)` **pops the stack**, computes duration, optionally updates
-  message/result/context/user_id/tracker_id, and saves.
-- `tracker_id` (a `hexdec(uniqid())`, cached in the session) groups all rows of one flow. For
-  multi-app flows, pass `NestedFlowTracker::getTrackerId()` and the current node's `id` to the
-  downstream app so it continues the same tree.
+- **`Flow::span($name, $callback, $options)`** is the primary API. It opens a span, runs the
+  callback, and closes the span in a `finally` — so it's **exception-safe** and balanced by
+  construction (no manual end needed). Returns the callback's value untouched. On a thrown
+  exception it marks the span `Failed` (recording the exception in `result`) and rethrows.
+- **`start()`/`end()`** are the manual escape hatch (LIFO). Each open span is pushed onto an
+  instance stack **with its own start timestamp**, so duration is computed from the popped span's
+  stored start — there is no name-based timer lookup (the old footgun is gone). `end()` takes no
+  name; it always closes the innermost open span.
+- Nesting: a span opened while another is open is appended as a **child of the current top span**
+  and inherits its `trace_id`. `options['root'] = true` forces an independent root.
+- **`trace_id`** (32-char hex, OTel-style) groups every span of one flow. It is held on the
+  instance (no session coupling) — generated on the first root span, or set via `setTraceId()` /
+  `options['trace_id']` to continue an inbound flow across apps.
+- The service is bound with `$app->scoped(...)`, so each HTTP request / queued job gets a fresh
+  instance and state is flushed between them under Octane. (Full middleware is Phase 4.)
+- Disabled (`flow.enabled = false`): `span()` becomes a transparent pass-through (runs the
+  callback, returns its value); `start()`/`end()` are no-ops; nothing is written.
 
-The stack is process-global static state — start/end calls must be balanced (LIFO) per request.
+## Usage
+
+```php
+use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+
+$user = Flow::span('register user', function ($span) use ($data) {
+    $account = Flow::span('create account', fn () => Account::create($data));
+    Flow::span('send welcome email', fn () => Mail::to($account)->send(new Welcome()));
+    return $account;
+});
+
+// or the helper, or app(FlowTracker::class)
+flow()->span('charge card', fn () => $gateway->charge($card));
+```
 
 ## Configuration (env vars)
 
-- `FLOW_TRACKER_ACTIVE` — master switch. **Defaults to `0` (off)**; every public method
-  early-returns unless this is `1`. Nothing is recorded until it's enabled.
-- `FLOW_TRACKER_COMPONENT` — name of the current app/component (stored on each row).
-- `FLOW_TRACKER_DB_CONNECTION` — DB connection to write to (`default`, or a named connection
-  defined in `config/database.php`). The migration honors this same value.
+- `FLOW_ENABLED` — master switch (default `true`).
+- `FLOW_COMPONENT` — name of this app/service, stored on every span (default `app`).
+- `FLOW_CONNECTION` — DB connection for `flow_spans` (null = default; or a named connection).
 
 ## Commands
 
 ```bash
 composer test        # PHPUnit 11 via orchestra/testbench (tests/)
-composer analyse     # PHPStan (larastan) level 5, with baseline
+composer analyse     # PHPStan (larastan) level 6, no baseline
 ```
 
 Tests boot a real Laravel app via `orchestra/testbench` against an **in-memory SQLite** DB
-(`tests/TestCase.php`). They therefore require the **`pdo_sqlite`** PHP extension. CI enables it
-via setup-php; if your local PHP has it disabled, run:
+(`tests/TestCase.php`), so they require the **`pdo_sqlite`** extension (CI enables it via setup-php).
+Because the tracker is a scoped binding, testbench's per-test app refresh isolates state — no manual
+reset needed.
 
-```bash
-php -d extension=sqlite3 -d extension=pdo_sqlite vendor/bin/phpunit
-```
-
-PHPStan runs at **level 6** and is **clean with no baseline** — keep it that way; fix new
-findings rather than suppressing them. (`src/config/*` is excluded as declarative data.)
+PHPStan runs at **level 6** and is **clean with no baseline** — keep it that way; fix new findings
+rather than suppressing them. (`src/config/*` is excluded as declarative data.)
 
 ## Conventions & constraints
 
-- Targets PHP `>=7.1.3` and Laravel `5.5` through `10.x` — keep changes compatible across that
-  range (avoid features newer than the minimum PHP/Laravel supported).
-- Code style is enforced via StyleCI (`.styleci.yml`).
-- The package is published to Packagist; treat the public API (`startTrack`/`endTrack`/
-  `getTrackerId`/facade) as a stable contract — changing signatures is a breaking change.
-
-## Known rough edges (verify before relying on them)
-
-- `endTrack` closes tracks in **LIFO order**; the `$trackerName` argument only selects the timer
-  for the duration, not which track is closed. Callers must balance start/end. (Documented in
-  the method's docblock; a safer API is a Phase 3 goal.)
-- All state lives in process-global statics (`$tracker_id`, `$timers`, `$tracks_queue`, …) — not
-  safe across queues/Octane. Phase 3 will make it request-scoped/injectable.
+- Targets PHP `^8.1` and Laravel `^10|^11|^12`. Use modern idioms (typed signatures, enums,
+  readonly, constructor promotion, anonymous migrations).
+- No backward-compatibility obligation yet — prefer the clean design over preserving old shapes.
+- Work proceeds in phases (`ROADMAP.md`); keep `composer test` + `composer analyse` green each step.

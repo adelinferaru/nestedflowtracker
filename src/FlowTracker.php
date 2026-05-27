@@ -1,0 +1,245 @@
+<?php
+
+namespace AdelinFeraru\NestedFlowTracker;
+
+use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
+use AdelinFeraru\NestedFlowTracker\Events\SpanStarted;
+use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use Closure;
+use Illuminate\Contracts\Config\Repository as Config;
+use Illuminate\Contracts\Events\Dispatcher as Events;
+use Throwable;
+
+/**
+ * Records nested, timed spans for a flow. Instance state is held per-resolution
+ * (bound as a scoped singleton), so each HTTP request / queued job gets its own
+ * open-spans stack and trace id with no leakage across requests under Octane.
+ */
+class FlowTracker
+{
+    /** @var list<array{span: FlowSpan, start: float}> Open spans, innermost last. */
+    private array $stack = [];
+
+    private ?string $traceId = null;
+
+    private int|string|null $userId = null;
+
+    public function __construct(
+        private readonly Config $config,
+        private readonly Events $events,
+    ) {
+    }
+
+    /**
+     * Whether tracking is active. When false, span() is a transparent pass-through.
+     */
+    public function enabled(): bool
+    {
+        return (bool) $this->config->get('flow.enabled', true);
+    }
+
+    /**
+     * Trace a callback as a span: opens before, closes after (even on exception),
+     * and returns the callback's value untouched. This is the recommended API.
+     *
+     * @template TReturn
+     * @param Closure(FlowSpan|null): TReturn $callback
+     * @param array<string, mixed> $options
+     * @return TReturn
+     */
+    public function span(string $name, Closure $callback, array $options = []): mixed
+    {
+        if (! $this->enabled()) {
+            return $callback(null);
+        }
+
+        $span = $this->start($name, $options);
+
+        try {
+            return $callback($span);
+        } catch (Throwable $e) {
+            $this->fail($e);
+
+            throw $e;
+        } finally {
+            $this->end();
+        }
+    }
+
+    /**
+     * Open a span manually. Prefer span() unless you cannot wrap the work in a closure.
+     *
+     * @param array<string, mixed> $options trace_id, root, parent_id, user_id, component,
+     *                                       message, context, result.
+     */
+    public function start(string $name, array $options = []): ?FlowSpan
+    {
+        if (! $this->enabled()) {
+            return null;
+        }
+
+        $span = $this->newSpan();
+        $span->name = $name;
+        $span->status = SpanStatus::Running;
+        $span->component = $options['component'] ?? (string) $this->config->get('flow.component', 'app');
+        $span->message = $options['message'] ?? null;
+
+        if (array_key_exists('context', $options)) {
+            $span->context = $options['context'];
+        }
+
+        if (array_key_exists('result', $options)) {
+            $span->result = $options['result'];
+        }
+
+        if (isset($options['user_id'])) {
+            $this->userId = $options['user_id'];
+        }
+        if ($this->userId !== null) {
+            $span->user_id = $this->userId;
+        }
+
+        if (! empty($options['trace_id'])) {
+            $this->setTraceId((string) $options['trace_id']);
+        }
+
+        // Nest under the currently open span unless flagged as a root.
+        $parent = $this->currentSpan();
+        if ($parent !== null && empty($options['root'])) {
+            $span->trace_id = $parent->trace_id;
+            $span->appendToNode($parent);
+        } else {
+            $span->trace_id = $this->traceId ??= $this->newTraceId();
+        }
+
+        if (! empty($options['parent_id'])) {
+            $span->parent_id = $options['parent_id'];
+        }
+
+        $span->save();
+
+        $this->stack[] = ['span' => $span, 'start' => microtime(true)];
+
+        $this->events->dispatch(new SpanStarted($span));
+
+        return $span;
+    }
+
+    /**
+     * Close the most recently opened span, recording its duration.
+     *
+     * @param array<string, mixed> $options message, context, result, status overrides.
+     */
+    public function end(array $options = []): ?FlowSpan
+    {
+        if (! $this->enabled() || $this->stack === []) {
+            return null;
+        }
+
+        $entry = array_pop($this->stack);
+        $span = $entry['span'];
+        $span->duration = microtime(true) - $entry['start'];
+
+        if ($span->status === SpanStatus::Running) {
+            $span->status = SpanStatus::Ok;
+        }
+
+        foreach (['message', 'context', 'result', 'status'] as $key) {
+            if (array_key_exists($key, $options)) {
+                $span->{$key} = $options[$key];
+            }
+        }
+
+        $span->save();
+
+        $this->events->dispatch(new SpanFinished($span));
+
+        return $span;
+    }
+
+    /**
+     * Mark the currently open span as failed and record the exception. Saved when the
+     * span is closed.
+     *
+     * @param array<string, mixed> $context Extra data to merge into the result.
+     */
+    public function fail(Throwable $e, array $context = []): void
+    {
+        $span = $this->currentSpan();
+        if ($span === null) {
+            return;
+        }
+
+        $span->status = SpanStatus::Failed;
+        $span->result = array_merge([
+            'exception' => $e::class,
+            'message' => $e->getMessage(),
+        ], $context);
+    }
+
+    /**
+     * The innermost open span, or null when no span is open.
+     */
+    public function currentSpan(): ?FlowSpan
+    {
+        $entry = end($this->stack);
+
+        return $entry === false ? null : $entry['span'];
+    }
+
+    /**
+     * The id grouping every span of the current flow (null until the first span opens).
+     */
+    public function traceId(): ?string
+    {
+        return $this->traceId;
+    }
+
+    /**
+     * Continue an existing flow — e.g. from an inbound request's trace id.
+     */
+    public function setTraceId(string $traceId): static
+    {
+        $this->traceId = $traceId;
+
+        return $this;
+    }
+
+    /**
+     * Associate the current flow with a user.
+     */
+    public function setUser(int|string|null $userId): static
+    {
+        $this->userId = $userId;
+
+        return $this;
+    }
+
+    /**
+     * Reset all per-flow state. Called between requests/jobs by the scoped lifecycle.
+     */
+    public function flush(): void
+    {
+        $this->stack = [];
+        $this->traceId = null;
+        $this->userId = null;
+    }
+
+    private function newSpan(): FlowSpan
+    {
+        $span = new FlowSpan();
+
+        $connection = $this->config->get('flow.connection');
+        if ($connection !== null) {
+            $span->setConnection((string) $connection);
+        }
+
+        return $span;
+    }
+
+    private function newTraceId(): string
+    {
+        return bin2hex(random_bytes(16));
+    }
+}
