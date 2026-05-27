@@ -3,6 +3,16 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [2.3.0] - 2026-05-27
+
+### Added
+- `flow:benchmark` command to measure tracking overhead per driver (disabled / null / database).
+  The database run is wrapped in a transaction and rolled back, so it leaves no data behind.
+- Index on `flow_spans.created_at` (speeds the viewer's recent-flows listing and `flow:prune`).
+
+### Upgrade notes
+- Run the new migration: `php artisan vendor:publish --tag="flow-migrations" && php artisan migrate`.
+
 ## [2.2.0] - 2026-05-27
 
 ### Added
@@ -65,6 +75,7 @@ auto-instrumentation, a built-in viewer, and W3C Trace Context propagation.
 
 - Initial release with the static `NestedFlowTracker::startTrack()` / `endTrack()` API.
 
+[2.3.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.3.0
 [2.2.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.2.0
 [2.1.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.1.0
 [2.0.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.0.0

@@ -171,8 +171,18 @@ A single active storage driver chosen via `flow.driver`.
 - [x] Driver resolved scoped from config; `flow.driver` + `flow.log.channel`. Tests on Laravel
       10 & 12; PHPStan level 6 clean. README/CLAUDE updated.
 
+## 2.3 — Performance: measure & index  *(done)*
+Measure-first pass before optimizing.
+
+- [x] `flow:benchmark` command — times N flows × S spans across disabled / null / database
+      (database run wrapped in a transaction + rollback, so it's non-destructive); reports µs/span.
+- [x] Index review: added an index on `created_at` (viewer recency listing + `flow:prune`).
+- [x] Indicative numbers in the README; tests on Laravel 10 & 12; PHPStan level 6 clean.
+
 ### Still open for a future release
-- Performance: batched/deferred DB writes, index review, benchmarks.
+- Performance: **batched/deferred DB writes** — the benchmark shows the `database` driver's cost is
+  dominated by per-span writes, so this is the next optimization (buffered bulk-insert at flush;
+  needs tree-building moved onto `parent_span_id`).
 - Viewer: JSON read/query API.
 
 ## Phase 7 — Release & launch

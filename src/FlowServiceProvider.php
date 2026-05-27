@@ -2,6 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Console\BenchmarkCommand;
 use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
 use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
 use AdelinFeraru\NestedFlowTracker\Drivers\DatabaseDriver;
@@ -90,6 +91,7 @@ class FlowServiceProvider extends ServiceProvider
             ], 'flow-views');
 
             $this->commands([
+                BenchmarkCommand::class,
                 PruneCommand::class,
                 ShowFlowCommand::class,
             ]);

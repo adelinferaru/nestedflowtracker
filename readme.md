@@ -232,6 +232,28 @@ collector with no database.
 | `FLOW_OTEL_ENABLED` | `flow.otel.enabled` | `false` | Export completed flows to an OTLP/HTTP collector. |
 | `FLOW_OTEL_ENDPOINT` | `flow.otel.endpoint` | `null` | Collector base URL (spans go to `{endpoint}/v1/traces`). |
 
+## Performance
+
+Tracking costs nothing when off and little when on — measure it for your setup:
+
+```bash
+php artisan flow:benchmark --flows=300 --spans=5
+```
+
+Indicative per-span overhead (300 flows × 6 spans, in-memory SQLite — **your database and hardware
+will differ**, the `database` figure especially):
+
+| Scenario | µs / span |
+| --- | --- |
+| disabled (`flow.enabled=false`) | ~1 |
+| `null` driver (tracking, no storage) | ~60 |
+| `database` driver | ~1100 |
+
+The `database` cost is dominated by the per-span writes. If it matters: use the `log`/`otel`
+drivers, point `flow.connection` at a separate database, or run with a deferred-write mode (on the
+[roadmap](ROADMAP.md)). `flow_spans` is indexed on `trace_id`, `span_id`, `component`, `status`,
+and `created_at`.
+
 ## Testing
 
 ```bash
