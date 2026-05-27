@@ -133,14 +133,21 @@ no build step). Read API + artisan commands deferred.
 - [x] Tests (index/show/filter, 404 unknown trace, 403 without gate, 404 when disabled) on
       Laravel 10 & 12; PHPStan level 6 clean. README + CLAUDE.md updated.
 - [ ] *(deferred)* JSON read/query API.
-- [ ] *(deferred → Phase 6 housekeeping)* artisan commands (inspect a flow, prune old spans).
+- [x] artisan commands (`flow:show`, `flow:prune`) — delivered in Phase 6.
 
-## Phase 6 — Interop & performance
-Pillar 4 + hardening.
+## Phase 6 — Interop & housekeeping  *(core done)*
+Pillar 4. **Scope this round: W3C Trace Context propagation + artisan commands.** OTel exporter,
+storage drivers, and batched writes deferred (see below).
 
-- [ ] W3C Trace Context (`traceparent`) propagation in/out across apps and outbound HTTP.
-- [ ] Optional OpenTelemetry exporter.
-- [ ] Pluggable storage drivers (DB now; log/null/OTel later); index/perf review; benchmarks.
+- [x] **W3C Trace Context** (`TraceContext`): outbound `Http::withFlowTrace()` macro injects
+      `traceparent`; inbound `TrackRequest` reads it and continues the upstream trace. Our 32-hex
+      `trace_id` maps onto the W3C trace id directly.
+- [x] **Artisan**: `flow:show {trace}` (colored tree) and `flow:prune --days` (plain delete).
+- [x] Added `guzzlehttp/guzzle` to dev deps (Laravel's HTTP client needs it; was only transitively
+      present on the Laravel 12 stack). Tests on Laravel 10 & 12; PHPStan level 6 clean. Docs updated.
+- [ ] *(deferred)* Optional OpenTelemetry exporter (adds the OTel SDK — likely its own phase).
+- [ ] *(deferred)* Pluggable storage drivers (DB now; log/null/OTel later).
+- [ ] *(deferred)* Performance: batched/deferred DB writes, index review, benchmarks.
 
 ## Phase 7 — Release & launch
 - [ ] Docs site / rich README with the viewer screenshot; quickstart.
