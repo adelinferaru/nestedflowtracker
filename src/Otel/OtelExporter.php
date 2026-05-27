@@ -23,7 +23,7 @@ class OtelExporter
      */
     public function export(string $traceId): void
     {
-        $spans = FlowSpan::query()->where('trace_id', $traceId)->orderBy('_lft')->get();
+        $spans = FlowSpan::query()->where('trace_id', $traceId)->orderBy('started_at')->get();
         if ($spans->isNotEmpty()) {
             $this->exportSpans($spans);
         }

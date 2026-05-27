@@ -16,7 +16,7 @@ class ShowFlowCommand extends Command
     {
         $trace = (string) $this->argument('trace');
 
-        $spans = FlowSpan::query()->where('trace_id', $trace)->orderBy('_lft')->get();
+        $spans = FlowSpan::query()->where('trace_id', $trace)->orderBy('started_at')->get();
 
         if ($spans->isEmpty()) {
             $this->error("No flow found for trace {$trace}.");
@@ -24,15 +24,15 @@ class ShowFlowCommand extends Command
             return self::FAILURE;
         }
 
-        /** @var array<int, list<FlowSpan>> $childrenByParent */
+        /** @var array<string, list<FlowSpan>> $childrenByParent */
         $childrenByParent = [];
         foreach ($spans as $span) {
-            if ($span->parent_id !== null) {
-                $childrenByParent[$span->parent_id][] = $span;
+            if ($span->parent_span_id !== null) {
+                $childrenByParent[$span->parent_span_id][] = $span;
             }
         }
 
-        foreach ($spans->whereNull('parent_id') as $root) {
+        foreach ($spans->whereNull('parent_span_id') as $root) {
             $this->printSpan($root, $childrenByParent, 0);
         }
 
@@ -40,7 +40,7 @@ class ShowFlowCommand extends Command
     }
 
     /**
-     * @param array<int, list<FlowSpan>> $childrenByParent
+     * @param array<string, list<FlowSpan>> $childrenByParent
      */
     private function printSpan(FlowSpan $span, array $childrenByParent, int $depth): void
     {
@@ -59,7 +59,7 @@ class ShowFlowCommand extends Command
             $span->status->value,
         ));
 
-        foreach ($childrenByParent[$span->id] ?? [] as $child) {
+        foreach ($childrenByParent[$span->span_id] ?? [] as $child) {
             $this->printSpan($child, $childrenByParent, $depth + 1);
         }
     }

@@ -179,10 +179,15 @@ Measure-first pass before optimizing.
 - [x] Index review: added an index on `created_at` (viewer recency listing + `flow:prune`).
 - [x] Indicative numbers in the README; tests on Laravel 10 & 12; PHPStan level 6 clean.
 
+## 2.4 — Batched writes  *(done)*
+- [x] `BufferedDatabaseDriver` (opt-in via `flow.buffer`): buffers a flow in memory and bulk-inserts
+      it in a single query when the root span closes — ~8× faster than the immediate driver in the
+      benchmark (in-memory SQLite). Off by default (spans persist only on flow completion).
+- [x] Tree reads (viewer, `flow:show`, OTel export) moved onto `parent_span_id` + `started_at` so
+      they work for both the immediate and buffered drivers. `flow:benchmark` gained a buffered row.
+- [x] Tests on Laravel 10 & 12; PHPStan level 6 clean.
+
 ### Still open for a future release
-- Performance: **batched/deferred DB writes** — the benchmark shows the `database` driver's cost is
-  dominated by per-span writes, so this is the next optimization (buffered bulk-insert at flush;
-  needs tree-building moved onto `parent_span_id`).
 - Viewer: JSON read/query API.
 
 ## Phase 7 — Release & launch

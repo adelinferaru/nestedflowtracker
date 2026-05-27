@@ -13,7 +13,9 @@ class FlowViewerController
      */
     public function index(Request $request): Response
     {
-        $query = FlowSpan::query()->whereNull('parent_id')->latest();
+        // Roots are spans with no parent span (parent_span_id is null for both the
+        // immediate and buffered database drivers).
+        $query = FlowSpan::query()->whereNull('parent_span_id')->latest();
 
         if ($request->filled('component')) {
             $query->where('component', $request->input('component'));
@@ -26,7 +28,7 @@ class FlowViewerController
         $flows = $query->paginate(25)->withQueryString();
 
         $components = FlowSpan::query()
-            ->whereNull('parent_id')
+            ->whereNull('parent_span_id')
             ->distinct()
             ->orderBy('component')
             ->pluck('component');
@@ -48,15 +50,15 @@ class FlowViewerController
     {
         $spans = FlowSpan::query()
             ->where('trace_id', $trace)
-            ->orderBy('_lft')
+            ->orderBy('started_at')
             ->get();
 
         abort_if($spans->isEmpty(), 404);
 
-        // Build the tree from parent ids and hang each node's children off it.
-        $childrenByParent = $spans->groupBy('parent_id');
+        // Build the tree from span ids and hang each node's children off it.
+        $childrenByParent = $spans->groupBy('parent_span_id');
         foreach ($spans as $span) {
-            $span->setRelation('children', $childrenByParent->get($span->id) ?? collect());
+            $span->setRelation('children', $childrenByParent->get($span->span_id) ?? collect());
         }
 
         $root = $spans->first();
@@ -64,7 +66,7 @@ class FlowViewerController
         return response()->view('flow::show', [
             'trace' => $trace,
             'root' => $root,
-            'tree' => $spans->whereNull('parent_id')->values(),
+            'tree' => $spans->whereNull('parent_span_id')->values(),
             'rootDuration' => (float) ($root->duration ?? 0.0),
         ]);
     }
