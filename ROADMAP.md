@@ -187,8 +187,15 @@ Measure-first pass before optimizing.
       they work for both the immediate and buffered drivers. `flow:benchmark` gained a buffered row.
 - [x] Tests on Laravel 10 & 12; PHPStan level 6 clean.
 
-### Still open for a future release
-- Viewer: JSON read/query API.
+## 2.5 — Viewer JSON API  *(done)*
+- [x] `FlowApiController`: `GET api/flows` (paginated list + component/status filters) and
+      `GET api/flows/{trace}` (nested span tree), served from the viewer route group (same enable
+      flag + `viewFlow` gate + middleware). Tests on Laravel 10 & 12; PHPStan level 6 clean.
+
+---
+
+**Roadmap complete.** All four product pillars plus the post-2.0 follow-ups (OTel export, storage
+drivers, performance/batched writes, JSON API) have shipped. Future ideas live in GitHub issues.
 
 ## Phase 7 — Release & launch
 - [ ] Docs site / rich README with the viewer screenshot; quickstart.

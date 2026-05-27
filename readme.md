@@ -179,6 +179,23 @@ Gate::define('viewFlow', fn ($user) => $user->isAdmin());
 
 Publish the views to customize them: `php artisan vendor:publish --tag="flow-views"`.
 
+### JSON API
+
+The viewer also exposes a read API (same enable flag + `viewFlow` gate):
+
+```
+GET {path}/api/flows               # recent flows; ?component=, ?status=, ?per_page=, ?page=
+GET {path}/api/flows/{trace}       # one flow as a nested span tree
+```
+
+```jsonc
+// GET /flow/api/flows/{trace}
+{ "trace_id": "…", "spans": [ { "name": "checkout", "status": "ok", "duration": 0.19,
+  "children": [ { "name": "charge card", "status": "ok", "duration": 0.08, "children": [] } ] } ] }
+```
+
+For token-based/stateless API clients, set `flow.viewer.middleware` to `['api']`.
+
 ## Storage drivers
 
 Choose where finished spans go with `flow.driver`:
