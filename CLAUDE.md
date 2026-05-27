@@ -28,12 +28,17 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
 - `src/Facades/Flow.php` — the `Flow` facade (with `@method` docblocks for IDE support).
 - `src/helpers.php` — the `flow()` helper (autoloaded via composer `files`).
 - `src/Http/Middleware/TrackRequest.php` — wraps each HTTP request in a root span (opt-in).
-- `src/FlowServiceProvider.php` — registers the scoped `FlowTracker`, merges config, loads/publishes
-  migrations + config (`flow-config`, `flow-migrations` tags), and wires opt-in auto-instrumentation
-  (HTTP middleware via the kernel's group + queue job-event listeners).
-- `src/config/flow.php` — config (`enabled`, `component`, `connection`, `auto.http`, `auto.queue`).
+- `src/Http/Middleware/Authorize.php` — guards the viewer (local env, or a `viewFlow` gate).
+- `src/Http/Controllers/FlowViewerController.php` — viewer `index` (recent flows) + `show` (tree).
+- `src/resources/views/` — Blade viewer UI (`layout`, `index`, `show`, `partials/span`); no build step.
+- `src/FlowServiceProvider.php` — registers the scoped `FlowTracker`, merges config, loads views +
+  migrations, publishes config/migrations/views (`flow-config`/`flow-migrations`/`flow-views`), and
+  wires opt-in auto-instrumentation (HTTP middleware via the kernel's group + queue listeners) and
+  the viewer routes.
+- `src/config/flow.php` — config (`enabled`, `component`, `connection`, `auto.*`, `viewer.*`).
 - `src/migrations/2026_05_27_000000_create_flow_spans_table.php` — creates `flow_spans`.
-- `tests/` — `orchestra/testbench` suite. `phpstan.neon` (level 6, no baseline); `.github/workflows/ci.yml`.
+- `tests/` — `orchestra/testbench` suite (`tests/Fixtures/` holds job fixtures). `phpstan.neon`
+  (level 6, no baseline); `.github/workflows/ci.yml`.
 
 ## How it works (the important mental model)
 
@@ -82,6 +87,11 @@ flow()->span('charge card', fn () => $gateway->charge($card));
 - `FLOW_COMPONENT` — name of this app/service, stored on every span (default `app`).
 - `FLOW_CONNECTION` — DB connection for `flow_spans` (null = default; or a named connection).
 - `FLOW_AUTO_HTTP` / `FLOW_AUTO_QUEUE` — opt-in auto-instrumentation (default `false`).
+- `FLOW_VIEWER` / `FLOW_VIEWER_PATH` — opt-in built-in viewer UI (default off; path `flow`).
+  Access: allowed in `local`, else needs a `viewFlow` gate. Views always register (so PHPStan,
+  which boots the provider via composer `extra.laravel.providers`, resolves `flow::` views);
+  routes only when enabled. Controllers use `response()->view()` (not the `view()` helper) to
+  sidestep larastan's `view-string` check on namespaced package views.
 
 ## Commands
 
