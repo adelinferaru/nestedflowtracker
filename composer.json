@@ -17,9 +17,10 @@
         "kalnoy/nestedset": "^6.0.6"
     },
     "require-dev": {
+        "guzzlehttp/guzzle": "^7.0",
+        "larastan/larastan": "^2.9|^3.0",
         "orchestra/testbench": "^8.0|^9.0|^10.0",
-        "phpunit/phpunit": "^10.5|^11.0",
-        "larastan/larastan": "^2.9|^3.0"
+        "phpunit/phpunit": "^10.5|^11.0"
     },
     "autoload": {
         "psr-4": {

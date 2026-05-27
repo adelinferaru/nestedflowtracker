@@ -31,10 +31,12 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
 - `src/Http/Middleware/Authorize.php` — guards the viewer (local env, or a `viewFlow` gate).
 - `src/Http/Controllers/FlowViewerController.php` — viewer `index` (recent flows) + `show` (tree).
 - `src/resources/views/` — Blade viewer UI (`layout`, `index`, `show`, `partials/span`); no build step.
+- `src/TraceContext.php` — W3C `traceparent` value object (parse/build; our trace_id is 32-hex).
+- `src/Console/PruneCommand.php` (`flow:prune`) and `ShowFlowCommand.php` (`flow:show {trace}`).
 - `src/FlowServiceProvider.php` — registers the scoped `FlowTracker`, merges config, loads views +
-  migrations, publishes config/migrations/views (`flow-config`/`flow-migrations`/`flow-views`), and
-  wires opt-in auto-instrumentation (HTTP middleware via the kernel's group + queue listeners) and
-  the viewer routes.
+  migrations, publishes config/migrations/views (`flow-config`/`flow-migrations`/`flow-views`),
+  registers the `Http::withFlowTrace()` macro + artisan commands, and wires opt-in
+  auto-instrumentation (HTTP middleware via the kernel's group + queue listeners) and viewer routes.
 - `src/config/flow.php` — config (`enabled`, `component`, `connection`, `auto.*`, `viewer.*`).
 - `src/migrations/2026_05_27_000000_create_flow_spans_table.php` — creates `flow_spans`.
 - `tests/` — `orchestra/testbench` suite (`tests/Fixtures/` holds job fixtures). `phpstan.neon`
@@ -59,6 +61,9 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
   instance and state is flushed between them under Octane.
 - Disabled (`flow.enabled = false`): `span()` becomes a transparent pass-through (runs the
   callback, returns its value); `start()`/`end()` are no-ops; nothing is written.
+- **Cross-app propagation (W3C Trace Context):** outbound via the `Http::withFlowTrace()` macro
+  (injects `traceparent` from the current trace + span id); inbound is read automatically by
+  `TrackRequest` (continues the upstream trace). `TraceContext` parses/builds the header.
 - **Auto-instrumentation (opt-in):** with `flow.auto.http`, `TrackRequest` is appended to the
   web + api groups (via the HTTP kernel, so it survives the kernel's group sync) and opens a root
   span per request. With `flow.auto.queue`, the provider listens to `JobProcessing`/`JobProcessed`/

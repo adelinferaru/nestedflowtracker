@@ -92,17 +92,33 @@ Flow::start('long running process');
 Flow::end(['result' => ['ok' => true]]);
 ```
 
-### Across applications
+### Across applications (W3C Trace Context)
 
-Pass the current `trace_id` to a downstream service and continue the same flow there:
+Flows propagate across services via the standard [`traceparent`](https://www.w3.org/TR/trace-context/)
+header (our `trace_id` is already a 32-hex W3C trace id).
+
+**Outbound** — add the current trace to an HTTP client call:
 
 ```php
-$traceId = Flow::traceId();
-// ... send $traceId to the other app (e.g. a request header) ...
+Http::withFlowTrace()->post('https://orders.internal/checkout', $payload);
+```
 
-// in the downstream app:
-Flow::setTraceId($incomingTraceId);
-Flow::span('handle webhook', fn () => /* ... */);
+**Inbound** — with `flow.auto.http` enabled, an incoming `traceparent` is read automatically and the
+request's root span continues the upstream trace. Doing it manually:
+
+```php
+use AdelinFeraru\NestedFlowTracker\TraceContext;
+
+if ($ctx = TraceContext::parse($request->header('traceparent'))) {
+    Flow::setTraceId($ctx->traceId);
+}
+```
+
+## Artisan commands
+
+```bash
+php artisan flow:show {trace}   # print a flow as a tree
+php artisan flow:prune --days=30 # delete flow spans older than N days
 ```
 
 ### Events

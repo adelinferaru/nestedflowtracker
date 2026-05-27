@@ -2,11 +2,14 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
+use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\Authorize;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\TrackRequest;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
@@ -34,6 +37,7 @@ class FlowServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__ . '/migrations');
         $this->loadViewsFrom(__DIR__ . '/resources/views', 'flow');
+        $this->registerHttpClientMacro();
 
         $config = $this->app['config'];
 
@@ -61,7 +65,34 @@ class FlowServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/resources/views' => base_path('resources/views/vendor/flow'),
             ], 'flow-views');
+
+            $this->commands([
+                PruneCommand::class,
+                ShowFlowCommand::class,
+            ]);
         }
+    }
+
+    /**
+     * Add `Http::withFlowTrace()` to inject the current flow's W3C traceparent
+     * header onto an outbound request.
+     */
+    private function registerHttpClientMacro(): void
+    {
+        $container = $this->app;
+
+        PendingRequest::macro('withFlowTrace', function () use ($container) {
+            /** @var PendingRequest $this */
+            $flow = $container->make(FlowTracker::class);
+            $traceId = $flow->traceId();
+
+            if ($traceId !== null) {
+                $context = new TraceContext($traceId, TraceContext::spanId($flow->currentSpan()?->id));
+                $this->withHeaders(['traceparent' => $context->toHeader()]);
+            }
+
+            return $this;
+        });
     }
 
     /**
