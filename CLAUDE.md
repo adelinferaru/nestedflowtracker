@@ -142,5 +142,17 @@ rather than suppressing them. (`src/config/*` is excluded as declarative data.)
 
 - Targets PHP `^8.1` and Laravel `^10|^11|^12`. Use modern idioms (typed signatures, enums,
   readonly, constructor promotion, anonymous migrations).
-- No backward-compatibility obligation yet — prefer the clean design over preserving old shapes.
-- Work proceeds in phases (`ROADMAP.md`); keep `composer test` + `composer analyse` green each step.
+- **Published on Packagist** (currently 2.5.x; see `changelog.md` / git tags). It follows SemVer
+  now, so breaking changes need a new major; additive changes are minor, fixes are patch.
+- **Commit/PR style — no AI attribution.** Do **not** add `Co-Authored-By: Claude …` trailers to
+  commits, or "Generated with Claude Code" lines to PR bodies. This is a public repo and the owner
+  wants clean history. (Overrides the default Claude Code commit trailer.)
+- Keep `composer test` and `composer analyse` (PHPStan level 6, no baseline) green on every change.
+- **Verify on both Laravel 10 and 12 before releasing** — the support matrix's low end has bitten
+  us more than once (e.g. `casts()` is L11+, `guzzlehttp/guzzle` only transitively present on L12).
+  To run the L10 stack locally: `composer require "laravel/framework:^10.0" "orchestra/testbench:^8.0"
+  --no-update && composer update`, run the suite, then restore.
+- Workflow: branch → PR → CI green (Actions matrix) → merge. Releases are git tags (`x.y.z`) +
+  a GitHub Release; Packagist updates from the tag automatically.
+- The phased build history and remaining ideas live in `ROADMAP.md`. The roadmap as planned is
+  fully shipped; new work would be fresh features/fixes.
