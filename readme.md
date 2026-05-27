@@ -12,9 +12,8 @@ Telescope it traces *your* business flows (not framework internals) and works in
 
 ![A checkout flow rendered as a timed tree in the built-in viewer](art/show.png)
 
-> **Status:** 2.0 is under active development. The span API, auto-instrumentation, and the built-in
-> viewer (above) are in; W3C Trace Context propagation and OpenTelemetry export are on the
-> [roadmap](ROADMAP.md).
+**Requires** PHP 8.1+ and Laravel 10, 11, or 12. An OpenTelemetry exporter and pluggable storage
+drivers are on the [roadmap](ROADMAP.md).
 
 ## Installation
 

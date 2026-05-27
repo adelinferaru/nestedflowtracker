@@ -4,12 +4,17 @@ Contributions are welcome and will be fully credited.
 
 Contributions are accepted via Pull Requests on [Github](https://github.com/adelinferaru/nestedflowtracker).
 
-# Things you could do
-If you want to contribute but do not know where to start, this list provides some starting points.
-- Add license text
-- Remove rewriteRules.php
-- Set up TravisCI, StyleCI, ScrutinizerCI
-- Write a comprehensive ReadMe
+The [ROADMAP](ROADMAP.md) lists what's planned next (e.g. an OpenTelemetry exporter, pluggable
+storage drivers, and a performance pass) — good starting points if you're looking for something
+to pick up.
+
+## Local development
+
+```bash
+composer install
+composer test      # PHPUnit via orchestra/testbench
+composer analyse   # PHPStan (larastan) level 6
+```
 
 ## Pull Requests
 
