@@ -117,8 +117,8 @@ When making an API call to another app that is part of the flow and might need t
 ```$xslt
 ...
 public static function doSomething($data) {
-    $tracker_parent_id = $data['tracker_parent_id] ?? null;
-    $tracker_id = $data['tracker_id] ?? NestedFlowTracker::getTrackerId();
+    $tracker_parent_id = $data['tracker_parent_id'] ?? null;
+    $tracker_id = $data['tracker_id'] ?? NestedFlowTracker::getTrackerId();
 
     $doSomething_timer = "Meter my doSomething";
     $track = NestedFlowTracker::startTrack($doSomething_timer, 
@@ -145,7 +145,7 @@ public static function doSomething($data) {
     // Supposedly we'll call another function that we want to track as a child of the already existing tracker "$track"
 
     $processData_timer = "Meter my processData";
-    $track2 = NestedFlowTracker::starTrack($processData_timer, "Process my data");
+    $track2 = NestedFlowTracker::startTrack($processData_timer, "Process my data");
     
     // Call another function to do something with data     
     $new_data = $this->processData($data);

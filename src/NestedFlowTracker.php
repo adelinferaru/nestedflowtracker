@@ -40,7 +40,7 @@ class NestedFlowTracker
     }
 
     /**
-     * @param null $tracker_id
+     * @param int|float|string|null $tracker_id A null value generates a new id.
      * @return void
      */
     public static function setTrackerId($tracker_id = null){
@@ -64,8 +64,7 @@ class NestedFlowTracker
      */
     public static function getInstance() {
         if (is_null(static::$instance)) {
-            static::$instance = new static();
-
+            static::$instance = new self();
         }
 
         return static::$instance;
@@ -88,10 +87,13 @@ class NestedFlowTracker
 
 
     /**
-     * @param $message
-     * @param null $parent_id
-     * @param array $settings
-     * @return FNTrack
+     * Start a (sub-)flow timer and create its tracking record.
+     *
+     * @param string $trackerName Unique timer name; also used by endTrack to read the duration.
+     * @param string|array|null $message Optional message (arrays are JSON-encoded).
+     * @param array $settings Optional overrides: tracker_id, user_id, component, message,
+     *                        result, context, parent_id, root.
+     * @return FNTrack|false The created record, or false when tracking is disabled.
      */
     public static function startTrack($trackerName, $message = null, $settings = []) {
 
@@ -106,29 +108,14 @@ class NestedFlowTracker
             $tracker = new FNTrack();
             $tracker->setConnection($db_connection);
 
-            // Try to set Tracker_ID
-            if (isset($settings['tracker_id']) && !empty($settings['tracker_id'])) {
-                $tracker->tracker_id = $settings['tracker_id'];
+            // Resolve the flow's tracker_id: an explicit one from settings wins; otherwise
+            // continue the current flow (static, then session), or start a brand new one.
+            if (!empty($settings['tracker_id'])) {
                 self::setTrackerId($settings['tracker_id']);
-            } else {
-                if (self::$tracker_id) {
-                    $tracker->tracker_id = self::$tracker_id;
-                } else {
-                    if (session('tracker_id')) {
-                        $tracker->tracker_id = session('tracker_id');
-
-                    } else {
-                        $tracker->tracker_id = hexdec(uniqid());
-                    }
-
-                    self::setTrackerId($tracker->tracker_id);
-                }
-                $tracker->tracker_id = self::$tracker_id ? self::$tracker_id : (session('tracker_id') ? session('tracker_id') : hexdec(uniqid()));
+            } elseif (!self::$tracker_id) {
+                self::setTrackerId(session('tracker_id') ?: hexdec(uniqid()));
             }
-
-
-            // Set the tracker's description/message
-            $tracker->message = $message;
+            $tracker->tracker_id = self::$tracker_id;
 
             // Set the component name
             $tracker->component = $settings['component'] ?? config('nestedflowtracker.component');
@@ -163,24 +150,18 @@ class NestedFlowTracker
                 $tracker->context = is_array($settings['context']) ? json_encode($settings['context']) : $settings['context'];
             }
 
-            if (!isset($settings['root']) || empty($settings['root']) || !$settings['root']) {
-                // Add this track as the child of the last track from tracks_queue
-                if (count(self::$tracks_queue) > 0) {
-                    $parentTracker = end(self::$tracks_queue);
-                    $tracker->appendToNode($parentTracker);
-                    $tracker->tracker_id = $parentTracker->tracker_id;
-                }
+            // Unless explicitly flagged as a root, nest this track under the currently
+            // open one (the last entry on the stack), inheriting its tracker_id.
+            if (empty($settings['root']) && count(self::$tracks_queue) > 0) {
+                $parentTracker = end(self::$tracks_queue);
+                $tracker->appendToNode($parentTracker);
+                $tracker->tracker_id = $parentTracker->tracker_id;
             }
 
-            // Set this tracker as a child of another tracker
-            if (isset($settings['parent_id']) && !empty($settings['parent_id'])) {
+            // Or attach to an explicitly provided parent.
+            if (!empty($settings['parent_id'])) {
                 $tracker->parent_id = $settings['parent_id'];
             }
-
-            /*if(! is_null($parent_id)) {
-                $tracker->parent_id = $parent_id;
-            }*/
-
 
             $tracker->save();
 
@@ -223,11 +204,18 @@ class NestedFlowTracker
 
 
     /**
-     * End the tracker that was started with the specified $trackerName.
-     * You may update message, user_id, context, result, tracker_id at this stage by
-     * filling the settings parameter
-     * @param $trackerName
-     * @param $settings
+     * Close the most recently opened track and record its duration.
+     *
+     * Contract: tracks are closed in LIFO order. $trackerName is used only to read this
+     * track's timer (its duration); it does NOT select which track is closed — the track on
+     * top of the stack is always the one closed. Callers must therefore balance start/end
+     * calls (last opened is first closed). Calling endTrack on an empty stack is a no-op.
+     *
+     * You may update message, user_id, context, result, tracker_id at this stage via $settings
+     * (an array of overrides). A bare non-empty scalar $settings is stored as the result.
+     *
+     * @param string $trackerName Name of the timer started via startTrack.
+     * @param array|string|null $settings Field overrides, or a scalar result.
      */
     public static function endTrack($trackerName, $settings = null) {
         if (config('nestedflowtracker.flow_tracker_active') == 1) {
@@ -235,33 +223,31 @@ class NestedFlowTracker
                 $tracker = array_pop(self::$tracks_queue);
                 $tracker->duration = self::getTimerDuration($trackerName);
 
-                if ($settings !== null) {
-                    if (!is_array($settings) && trim($settings) != "") {
-                        $tracker->result = $settings;
-                    } else {
-
-                        if (isset($settings['message'])) {
-                            $tracker->message = is_array($settings['message']) ? json_encode($settings['message']) : $settings['message'];
-                        }
-
-                        if (isset($settings['result'])) {
-                            $tracker->result = is_array($settings['result']) ? json_encode($settings['result']) : $settings['result'];
-                        }
-
-                        if (isset($settings['context'])) {
-                            $tracker->context = is_array($settings['context']) ? json_encode($settings['context']) : $settings['context'];
-                        }
-
-                        if (isset($settings['user_id'])) {
-                            $tracker->user_id = $settings['user_id'];
-                            self::$user_id = $settings['user_id'];
-                        }
-
-                        if (isset($settings['tracker_id'])) {
-                            $tracker->tracker_id = $settings['tracker_id'];
-                            self::$tracker_id = $settings['tracker_id'];
-                        }
+                if (is_array($settings)) {
+                    if (isset($settings['message'])) {
+                        $tracker->message = is_array($settings['message']) ? json_encode($settings['message']) : $settings['message'];
                     }
+
+                    if (isset($settings['result'])) {
+                        $tracker->result = is_array($settings['result']) ? json_encode($settings['result']) : $settings['result'];
+                    }
+
+                    if (isset($settings['context'])) {
+                        $tracker->context = is_array($settings['context']) ? json_encode($settings['context']) : $settings['context'];
+                    }
+
+                    if (isset($settings['user_id'])) {
+                        $tracker->user_id = $settings['user_id'];
+                        self::$user_id = $settings['user_id'];
+                    }
+
+                    if (isset($settings['tracker_id'])) {
+                        $tracker->tracker_id = $settings['tracker_id'];
+                        self::$tracker_id = $settings['tracker_id'];
+                    }
+                } elseif (is_scalar($settings) && trim((string) $settings) !== '') {
+                    // A bare scalar is stored as the result.
+                    $tracker->result = $settings;
                 }
 
                 $tracker->save();

@@ -64,8 +64,8 @@ via setup-php; if your local PHP has it disabled, run:
 php -d extension=sqlite3 -d extension=pdo_sqlite vendor/bin/phpunit
 ```
 
-PHPStan runs at level 5 with `phpstan-baseline.neon` capturing pre-existing findings — do not
-add to the baseline; fix new issues or justify before regenerating.
+PHPStan runs at level 5 and is **clean with no baseline** — keep it that way; fix new findings
+rather than suppressing them. (`src/config/*` is excluded as declarative data.)
 
 ## Conventions & constraints
 
@@ -77,7 +77,10 @@ add to the baseline; fix new issues or justify before regenerating.
 
 ## Known rough edges (verify before relying on them)
 
-- `readme.md` usage example calls `starTrack` (typo for `startTrack`).
-- `startTrack` has redundant `tracker_id` assignment logic (lines ~110–127) where the last line
-  overwrites the earlier branch.
-- The singleton pattern is only half-applied (everything is static; `__construct` is public).
+- The singleton scaffolding (`getInstance`/`$instance`/`__construct`/`__clone`/`__wakeup`) is
+  dead — everything is static. Slated for removal in the Phase 3 redesign.
+- `endTrack` closes tracks in **LIFO order**; the `$trackerName` argument only selects the timer
+  for the duration, not which track is closed. Callers must balance start/end. (Documented in
+  the method's docblock; a safer API is a Phase 3 goal.)
+- All state lives in process-global statics (`$tracker_id`, `$timers`, `$tracks_queue`, …) — not
+  safe across queues/Octane. Phase 3 will make it request-scoped/injectable.

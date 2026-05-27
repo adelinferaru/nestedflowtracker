@@ -2,8 +2,10 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
+use AdelinFeraru\NestedFlowTracker\NestedFlowTracker;
 use AdelinFeraru\NestedFlowTracker\NestedFlowTrackerServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use ReflectionClass;
 
 abstract class TestCase extends Orchestra
 {
@@ -11,8 +13,35 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
 
+        // NestedFlowTracker keeps process-global static state that survives the
+        // per-test application refresh; reset it so each test starts clean.
+        // (This global state is itself a Phase 3 refactor target.)
+        $this->resetTrackerState();
+
         // Run the package migration against the in-memory test database.
         $this->artisan('migrate')->run();
+    }
+
+    /**
+     * Reset NestedFlowTracker's static properties to their initial values.
+     */
+    protected function resetTrackerState(): void
+    {
+        $defaults = [
+            'instance' => null,
+            'tracker_id' => null,
+            'user_id' => null,
+            'timers' => [],
+            'tracks_queue' => [],
+            'db_connection' => null,
+        ];
+
+        $reflection = new ReflectionClass(NestedFlowTracker::class);
+        foreach ($defaults as $property => $value) {
+            $prop = $reflection->getProperty($property);
+            $prop->setAccessible(true);
+            $prop->setValue(null, $value);
+        }
     }
 
     /**

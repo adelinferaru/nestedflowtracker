@@ -5,6 +5,19 @@ namespace AdelinFeraru\NestedFlowTracker\Models;
 use Illuminate\Database\Eloquent\Model;
 use Kalnoy\Nestedset\NodeTrait;
 
+/**
+ * @property int $id
+ * @property string $tracker_id
+ * @property int|null $user_id
+ * @property string $component
+ * @property string|null $message
+ * @property float|null $duration
+ * @property string|null $context
+ * @property string|null $result
+ * @property int|null $parent_id
+ * @property int $_lft
+ * @property int $_rgt
+ */
 class FNTrack extends Model
 {
     use NodeTrait;
@@ -46,8 +59,8 @@ class FNTrack extends Model
      * @param array $context
      * @return $this
      */
-    public function setContext($context = []) {
-        $this->context = !empty($context) && is_array($context) ? json_encode($context) : null;
+    public function setContext(array $context = []) {
+        $this->context = !empty($context) ? json_encode($context) : null;
         return $this;
     }
 

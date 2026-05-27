@@ -1,12 +1,12 @@
 includes:
     - vendor/larastan/larastan/extension.neon
-    # Baseline captures the 27 pre-existing findings at level 5.
-    # Burn this down in Phase 1/2 (model @property docblocks, return types, env() usage).
-    - phpstan-baseline.neon
 
 parameters:
     level: 5
     paths:
         - src
+    excludePaths:
+        # Config files are declarative data; env() is legitimate inside them.
+        - src/config/*
     # tmpDir keeps PHPStan's cache out of the project root.
     tmpDir: build/phpstan

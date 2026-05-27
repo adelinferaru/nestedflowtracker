@@ -33,15 +33,21 @@ Set up the scaffolding that makes every later phase safe and fast. Small, no beh
 ## Phase 1 — Correctness & tests  *(first focus)*
 Pin down what the code does today, then fix the clear bugs.
 
-- [ ] **Characterization tests** for current behavior: nesting/tree building via the
-      start/end stack, `tracker_id` propagation, session interaction, the active/inactive switch,
-      duration capture, and settings handling (message/result/context/user_id/parent_id).
-- [ ] Fix the **redundant/contradictory `tracker_id` logic** in `startTrack` (lines ~110–127).
-- [ ] Audit `endTrack` settings handling (the `trim($settings)` scalar branch) and harden types.
-- [ ] Fix the `starTrack` typo and other errors in `readme.md` examples.
-- [ ] Decide & document the contract for **unbalanced start/end** calls (currently silent
-      LIFO pop) — at minimum test it; ideally detect mismatched timer names.
-- [ ] Verify the nested-set writes are correct under sibling/nested combinations.
+- [x] **Characterization tests** for current behavior (30 tests): nesting/tree via the
+      start/end stack, `tracker_id` propagation, session interaction, active/inactive switch,
+      duration capture, settings handling (message/result/context/user_id/parent_id).
+      Process-global statics reset between tests via reflection.
+- [x] Fix the **redundant/contradictory `tracker_id` logic** in `startTrack` — collapsed to a
+      single clear resolution (explicit → static → session → new); behavior preserved.
+- [x] Harden `endTrack` settings handling: array branch vs `is_scalar` + `(string)` cast (no
+      more `trim()` on arbitrary types).
+- [x] Fix the `starTrack` typo and broken array-key quotes in `readme.md` examples.
+- [x] Decide & document the contract for **unbalanced start/end** calls: kept LIFO, documented
+      explicitly in the `endTrack` docblock + a characterization test. Name-matching detection
+      deferred to the Phase 3 API redesign.
+- [x] Verify nested-set writes under sibling/nested combinations (covered by `NestingTest`).
+- [x] **Bonus:** PHPStan level 5 brought to **zero findings, no baseline** (model `@property`
+      docblocks, accurate `setTrackerId` param type, `new self()`, config excluded).
 
 ## Phase 2 — Modernization (drop legacy)
 Now that behavior is pinned, raise the floor.
