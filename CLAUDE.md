@@ -64,8 +64,8 @@ via setup-php; if your local PHP has it disabled, run:
 php -d extension=sqlite3 -d extension=pdo_sqlite vendor/bin/phpunit
 ```
 
-PHPStan runs at level 5 and is **clean with no baseline** — keep it that way; fix new findings
-rather than suppressing them. (`src/config/*` is excluded as declarative data.)
+PHPStan runs at **level 6** and is **clean with no baseline** — keep it that way; fix new
+findings rather than suppressing them. (`src/config/*` is excluded as declarative data.)
 
 ## Conventions & constraints
 
@@ -77,8 +77,6 @@ rather than suppressing them. (`src/config/*` is excluded as declarative data.)
 
 ## Known rough edges (verify before relying on them)
 
-- The singleton scaffolding (`getInstance`/`$instance`/`__construct`/`__clone`/`__wakeup`) is
-  dead — everything is static. Slated for removal in the Phase 3 redesign.
 - `endTrack` closes tracks in **LIFO order**; the `$trackerName` argument only selects the timer
   for the duration, not which track is closed. Callers must balance start/end. (Documented in
   the method's docblock; a safer API is a Phase 3 goal.)

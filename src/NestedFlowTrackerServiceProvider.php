@@ -7,18 +7,9 @@ use Illuminate\Support\ServiceProvider;
 class NestedFlowTrackerServiceProvider extends ServiceProvider
 {
     /**
-     * Indicates if loading of the provider is deferred.
-     *
-     * @var bool
-     */
-    protected $defer = false;
-
-    /**
      * Perform post-registration booting of services.
-     *
-     * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/config/nestedflowtracker.php', 'nestedflowtracker');
         // $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'adelinferaru');
@@ -34,13 +25,9 @@ class NestedFlowTrackerServiceProvider extends ServiceProvider
 
     /**
      * Register any package services.
-     *
-     * @return void
      */
-    public function register()
+    public function register(): void
     {
-
-
         // Register the service the package provides.
         $this->app->singleton('nestedflowtracker', function ($app) {
             return new NestedFlowTracker;
@@ -50,19 +37,17 @@ class NestedFlowTrackerServiceProvider extends ServiceProvider
     /**
      * Get the services provided by the provider.
      *
-     * @return array
+     * @return array<int, string>
      */
-    public function provides()
+    public function provides(): array
     {
         return ['nestedflowtracker'];
     }
 
     /**
      * Console-specific booting.
-     *
-     * @return void
      */
-    protected function bootForConsole()
+    protected function bootForConsole(): void
     {
         // Publishing the configuration file.
         $this->publishes([

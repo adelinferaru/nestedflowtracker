@@ -33,49 +33,52 @@ class FNTrack extends Model
         'parent_id'
     ];
 
-    public function getParentId() {
+    public function getParentId(): ?int
+    {
         return $this->parent_id;
     }
 
     /**
-     * @param $user_id
-     * @return $this
+     * @param int|string|null $user_id
      */
-    public function setUserId($user_id) {
+    public function setUserId($user_id): static
+    {
         $this->user_id = $user_id;
+
         return $this;
     }
 
     /**
-     * @param $tracker_id
-     * @return $this
+     * @param int|float|string $tracker_id
      */
-    public function setTrackerId($tracker_id) {
+    public function setTrackerId($tracker_id): static
+    {
         $this->tracker_id = $tracker_id;
+
         return $this;
     }
 
     /**
-     * @param array $context
-     * @return $this
+     * @param array<string, mixed> $context
      */
-    public function setContext(array $context = []) {
+    public function setContext(array $context = []): static
+    {
         $this->context = !empty($context) ? json_encode($context) : null;
+
         return $this;
     }
 
-    /**
-     * @param null $duration
-     * @return $this
-     */
-    public function setDuration($duration = null) {
+    public function setDuration(?float $duration = null): static
+    {
         $this->duration = $duration;
+
         return $this;
     }
 
-    public function setTrackParent(FNTrack $parent)
+    public function setTrackParent(FNTrack $parent): static
     {
         $this->appendToNode($parent);
+
         return $this;
     }
 }

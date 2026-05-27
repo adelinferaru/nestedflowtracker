@@ -28,7 +28,6 @@ abstract class TestCase extends Orchestra
     protected function resetTrackerState(): void
     {
         $defaults = [
-            'instance' => null,
             'tracker_id' => null,
             'user_id' => null,
             'timers' => [],

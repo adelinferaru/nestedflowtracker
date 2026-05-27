@@ -1,26 +1,18 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Kalnoy\Nestedset\NestedSet;
 
-class CreateFnFlowTracksTables extends Migration
+return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     *
-     * @return void
-     */
-    public function up()
+    public function up(): void
     {
-        // Get the correct DB Connection
-        $db_connection = config('nestedflowtracker.db_connection');
-        if($db_connection == "default") {
-            $db_connection = \Config::get('database.default');
-        }
-        if(! Schema::connection($db_connection)->hasTable('fn_flow_tracks')) {
-            Schema::connection($db_connection)->create('fn_flow_tracks', function (Blueprint $table) {
+        $connection = $this->connection();
+
+        if (! Schema::connection($connection)->hasTable('fn_flow_tracks')) {
+            Schema::connection($connection)->create('fn_flow_tracks', function (Blueprint $table) {
                 $table->bigIncrements('id');
                 $table->string('tracker_id', 64)->index();
                 $table->bigInteger('user_id')->nullable();
@@ -36,18 +28,20 @@ class CreateFnFlowTracksTables extends Migration
         }
     }
 
-    /**
-     * Reverse the migrations.
-     *
-     * @return void
-     */
-    public function down()
+    public function down(): void
     {
-        // Get the correct DB Connection
-        $db_connection = config('nestedflowtracker.db_connection');
-        if($db_connection == "default") {
-            $db_connection = \Config::get('database.default');
-        }
-        Schema::connection($db_connection)->dropIfExists('fn_flow_tracks');
+        Schema::connection($this->connection())->dropIfExists('fn_flow_tracks');
     }
-}
+
+    /**
+     * Resolve the connection the tracking table lives on.
+     */
+    private function connection(): string
+    {
+        $connection = config('nestedflowtracker.db_connection');
+
+        return $connection === 'default'
+            ? (string) config('database.default')
+            : (string) $connection;
+    }
+};

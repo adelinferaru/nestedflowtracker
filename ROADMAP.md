@@ -52,13 +52,18 @@ Pin down what the code does today, then fix the clear bugs.
 ## Phase 2 — Modernization (drop legacy)
 Now that behavior is pinned, raise the floor.
 
-- [ ] `composer.json`: bump to `php: ^8.1`, `laravel/framework` (or `illuminate/*`)
-      `^10 |^11 |^12`, `kalnoy/nestedset` to its current major; PHPUnit to 10/11.
-- [ ] Adopt modern PHP: typed properties, parameter/return types, constructor promotion,
-      `match`, readonly where sensible, first-class enums (e.g. for component/state if useful).
-- [ ] Replace deprecated Laravel calls; verify migration API and `Config`/`Schema` usage
-      against Laravel 12.
-- [ ] Remove dead code (commented blocks, half-finished singleton scaffolding).
+- [x] `composer.json` bump — done in Phase 0 (PHP `^8.1`, Laravel `^10|^11|^12`, testbench,
+      PHPUnit 11, larastan).
+- [x] Adopt modern PHP: parameter/return types across the public API, typed static props where
+      safe (`$timers`, `$tracks_queue`, `$db_connection`), `: static` fluent setters on the
+      model, flattened control flow, accurate `@property`/`@param` docblocks. (Constructor
+      promotion / enums deferred to the Phase 3 instance-based redesign.)
+- [x] Replace deprecated Laravel usage: migration converted to an anonymous class with `void`
+      return types; `\Config::get(...)` → `config(...)`; provider drops the obsolete `$defer`
+      and gains `void`/`array` return types. Verified on Laravel 12.
+- [x] Remove dead code: the unused singleton scaffolding (`getInstance`/`$instance`/
+      `__construct`/`__clone`/`__wakeup`) and commented blocks are gone.
+- [x] **Bonus:** raised PHPStan to **level 6** (still clean, no baseline).
 
 ## Phase 3 — Architecture redesign (the 2.0 core)
 The substantive refactor. Done against the green test suite from Phase 1.
