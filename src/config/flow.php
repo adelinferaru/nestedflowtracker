@@ -34,4 +34,22 @@ return [
     |
     */
     'connection' => env('FLOW_CONNECTION', null),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Automatic instrumentation
+    |--------------------------------------------------------------------------
+    |
+    | Opt in to record spans with zero manual calls:
+    |   - http:  a root span per HTTP request (added to the web + api groups).
+    |   - queue: a root span per queued job.
+    |
+    | Both default to off so installing the package never silently writes spans;
+    | flip them on once you've published the migration.
+    |
+    */
+    'auto' => [
+        'http' => env('FLOW_AUTO_HTTP', false),
+        'queue' => env('FLOW_AUTO_QUEUE', false),
+    ],
 ];

@@ -27,9 +27,11 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
 - `src/Events/SpanStarted.php`, `SpanFinished.php` — dispatched on open/close; each carries the span.
 - `src/Facades/Flow.php` — the `Flow` facade (with `@method` docblocks for IDE support).
 - `src/helpers.php` — the `flow()` helper (autoloaded via composer `files`).
+- `src/Http/Middleware/TrackRequest.php` — wraps each HTTP request in a root span (opt-in).
 - `src/FlowServiceProvider.php` — registers the scoped `FlowTracker`, merges config, loads/publishes
-  migrations + config (`flow-config`, `flow-migrations` tags).
-- `src/config/flow.php` — config (`enabled`, `component`, `connection`).
+  migrations + config (`flow-config`, `flow-migrations` tags), and wires opt-in auto-instrumentation
+  (HTTP middleware via the kernel's group + queue job-event listeners).
+- `src/config/flow.php` — config (`enabled`, `component`, `connection`, `auto.http`, `auto.queue`).
 - `src/migrations/2026_05_27_000000_create_flow_spans_table.php` — creates `flow_spans`.
 - `tests/` — `orchestra/testbench` suite. `phpstan.neon` (level 6, no baseline); `.github/workflows/ci.yml`.
 
@@ -49,9 +51,15 @@ Library/package only (no app, no front-end yet). Consumed via Composer + Laravel
   instance (no session coupling) — generated on the first root span, or set via `setTraceId()` /
   `options['trace_id']` to continue an inbound flow across apps.
 - The service is bound with `$app->scoped(...)`, so each HTTP request / queued job gets a fresh
-  instance and state is flushed between them under Octane. (Full middleware is Phase 4.)
+  instance and state is flushed between them under Octane.
 - Disabled (`flow.enabled = false`): `span()` becomes a transparent pass-through (runs the
   callback, returns its value); `start()`/`end()` are no-ops; nothing is written.
+- **Auto-instrumentation (opt-in):** with `flow.auto.http`, `TrackRequest` is appended to the
+  web + api groups (via the HTTP kernel, so it survives the kernel's group sync) and opens a root
+  span per request. With `flow.auto.queue`, the provider listens to `JobProcessing`/`JobProcessed`/
+  `JobExceptionOccurred` and opens a root span per job (calling `flush()` first so each job is an
+  isolated trace). Both default off → zero overhead unless enabled. The `#[Trace]` attribute and
+  batched writes were deferred to later phases.
 
 ## Usage
 
@@ -73,6 +81,7 @@ flow()->span('charge card', fn () => $gateway->charge($card));
 - `FLOW_ENABLED` — master switch (default `true`).
 - `FLOW_COMPONENT` — name of this app/service, stored on every span (default `app`).
 - `FLOW_CONNECTION` — DB connection for `flow_spans` (null = default; or a named connection).
+- `FLOW_AUTO_HTTP` / `FLOW_AUTO_QUEUE` — opt-in auto-instrumentation (default `false`).
 
 ## Commands
 

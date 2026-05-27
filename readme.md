@@ -117,6 +117,23 @@ Event::listen(function (SpanFinished $event) {
 });
 ```
 
+### Automatic instrumentation
+
+Opt in to record spans with **zero manual calls**:
+
+```dotenv
+FLOW_AUTO_HTTP=true    # a root span per HTTP request (web + api groups)
+FLOW_AUTO_QUEUE=true   # a root span per queued job
+```
+
+- **HTTP:** every request gets a root span named like `GET users/{id}`, with the method, path and
+  response status in its context; it's marked `failed` on a 5xx response or an exception. Any
+  manual `Flow::span()` calls during the request automatically nest underneath it.
+- **Queue:** every processed job gets a root span (`job: App\Jobs\...`); failed jobs are recorded
+  as `failed`. Each job is an isolated trace.
+
+Both default to off, so installing the package never silently writes spans.
+
 ## Configuration
 
 | Env | Config key | Default | Description |
@@ -124,6 +141,8 @@ Event::listen(function (SpanFinished $event) {
 | `FLOW_ENABLED` | `flow.enabled` | `true` | Master switch. When off, `span()` runs your callback transparently and stores nothing. |
 | `FLOW_COMPONENT` | `flow.component` | `app` | Name of this application/service, stored on every span. |
 | `FLOW_CONNECTION` | `flow.connection` | `null` | Connection for the `flow_spans` table (null = default). |
+| `FLOW_AUTO_HTTP` | `flow.auto.http` | `false` | Auto root span per HTTP request. |
+| `FLOW_AUTO_QUEUE` | `flow.auto.queue` | `false` | Auto root span per queued job. |
 
 ## Testing
 

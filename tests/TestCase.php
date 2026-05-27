@@ -28,6 +28,9 @@ abstract class TestCase extends Orchestra
 
     protected function defineEnvironment($app): void
     {
+        // The web middleware group (cookies/session) needs an app key.
+        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
+
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
             'driver' => 'sqlite',
