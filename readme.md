@@ -10,8 +10,11 @@ flow can span multiple applications via a shared `trace_id`.
 No collectors, no external backend — unlike OpenTelemetry you need no infrastructure, and unlike
 Telescope it traces *your* business flows (not framework internals) and works in production.
 
-> **Status:** 2.0 is under active development. The API below is current; auto-instrumentation
-> middleware, a built-in viewer, and OpenTelemetry export are on the [roadmap](ROADMAP.md).
+![A checkout flow rendered as a timed tree in the built-in viewer](art/show.png)
+
+> **Status:** 2.0 is under active development. The span API, auto-instrumentation, and the built-in
+> viewer (above) are in; W3C Trace Context propagation and OpenTelemetry export are on the
+> [roadmap](ROADMAP.md).
 
 ## Installation
 
@@ -147,6 +150,8 @@ FLOW_VIEWER=true
   component/status.
 - **Detail** (`/flow/{trace}`) — the flow rendered as a collapsible tree with duration bars and
   failed spans highlighted.
+
+![The viewer index listing recent flows](art/index.png)
 
 **Access control:** the viewer is reachable automatically in the `local` environment. In any other
 environment you must define a `viewFlow` gate to grant access:
