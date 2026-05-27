@@ -160,8 +160,18 @@ A lightweight, opt-in OTLP/HTTP exporter — **no OTel SDK dependency** (keeps t
 - [x] `config('flow.otel')` (`enabled`/`endpoint`/`headers`/`timeout`/`queue`), opt-in (default off).
 - [x] Tests on Laravel 10 & 12; PHPStan level 6 clean. README/CLAUDE updated.
 
+## 2.2 — Pluggable storage drivers  *(done)*
+A single active storage driver chosen via `flow.driver`.
+
+- [x] `SpanDriver` interface; `FlowTracker` delegates persistence (no longer touches the DB
+      directly). `parent_span_id` (16-hex) column so parent linkage works without DB row ids.
+- [x] Drivers: `database` (nested-set; full features — parity with prior behavior), `log` (JSON to
+      a channel), `null` (discard), `otel` (buffer in memory, emit the flow to OTLP on root close —
+      no DB). `OtelExporter` gained `exportSpans(iterable)` for the in-memory path.
+- [x] Driver resolved scoped from config; `flow.driver` + `flow.log.channel`. Tests on Laravel
+      10 & 12; PHPStan level 6 clean. README/CLAUDE updated.
+
 ### Still open for a future release
-- Pluggable storage drivers (DB now; log/null/OTel-direct later).
 - Performance: batched/deferred DB writes, index review, benchmarks.
 - Viewer: JSON read/query API.
 
