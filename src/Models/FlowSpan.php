@@ -43,4 +43,14 @@ class FlowSpan extends Model
         'context' => 'array',
         'result' => 'array',
     ];
+
+    /**
+     * Use the configured flow connection (falling back to the default) so writes
+     * and viewer reads always target the same database.
+     */
+    public function getConnectionName(): ?string
+    {
+        return config('flow.connection') ?? $this->connection;
+    }
 }
+

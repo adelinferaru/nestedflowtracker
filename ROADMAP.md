@@ -104,21 +104,36 @@ middleware/attributes/viewer/OTel come in later phases.
 - [x] New behavioral test suite (21 tests) specifying the above; PHPStan level 6 stays clean.
       CLAUDE.md + README rewritten for the new API.
 
-## Phase 4 — Auto-instrumentation
-Pillar 2. Value with zero manual calls.
+## Phase 4 — Auto-instrumentation  *(core done)*
+Pillar 2. Value with zero manual calls. **Scope this round: HTTP + queue** (opt-in via
+`flow.auto.*`, default off). `#[Trace]` and batched writes deferred.
 
-- [ ] HTTP middleware: a root span per request (method + path), failed on 5xx/exception.
-- [ ] Queue middleware / listeners: a span per job.
-- [ ] `#[Trace]` method attribute.
-- [ ] Near-zero overhead when disabled; batch/defer DB writes (flush at end of request).
+- [x] HTTP middleware (`TrackRequest`): a root span per request (method + route uri), records
+      method/path/status in context, marked `failed` on 5xx; manual spans nest under it.
+      Appended via the HTTP kernel so it survives the kernel's group sync to the router.
+- [x] Queue auto-instrumentation via `JobProcessing`/`JobProcessed`/`JobExceptionOccurred`
+      listeners: a root span per job, `flush()`ed so each job is an isolated trace; failed jobs
+      recorded as `failed`.
+- [x] Config toggles `flow.auto.http` / `flow.auto.queue` (default off → zero overhead).
+- [x] Tests (HTTP 200/500 + nesting + opt-in gate; queue ok/failed/isolation) on Laravel 10 & 12;
+      PHPStan level 6 clean. README + CLAUDE.md updated.
+- [ ] *(deferred)* `#[Trace]` method attribute — needs a call-interception mechanism.
+- [ ] *(deferred → Phase 6)* batch/defer DB writes (flush at end of request).
 
-## Phase 5 — The viewer (adoption driver)
-Pillar 3. Make the data *visible*.
+## Phase 5 — The viewer (adoption driver)  *(core done)*
+Pillar 3. Make the data *visible*. **Scope this round: index + flow detail** (Blade + vanilla,
+no build step). Read API + artisan commands deferred.
 
-- [ ] Publishable, opt-in route + UI rendering a flow by `trace_id` as a collapsible tree /
-      mini flame-graph with durations and the slow/failed path highlighted.
-- [ ] Index/list view (recent flows, filter by component/status/user), read/query API.
-- [ ] Artisan commands (inspect a flow, prune old spans).
+- [x] Opt-in, secured route + Blade UI: flow **detail** (`/flow/{trace}`) renders the trace as a
+      collapsible tree (native `<details>`) with duration bars and failed-span highlighting.
+- [x] **Index** (`/flow`): recent flows with component/status/duration, filter by component/status.
+- [x] Auth: allowed in `local`, otherwise a `viewFlow` gate (`Authorize` middleware). Opt-in via
+      `flow.viewer.enabled`; path/middleware configurable; views publishable (`flow-views`).
+- [x] `FlowSpan::getConnectionName()` honors `flow.connection` so viewer reads hit the right DB.
+- [x] Tests (index/show/filter, 404 unknown trace, 403 without gate, 404 when disabled) on
+      Laravel 10 & 12; PHPStan level 6 clean. README + CLAUDE.md updated.
+- [ ] *(deferred)* JSON read/query API.
+- [ ] *(deferred → Phase 6 housekeeping)* artisan commands (inspect a flow, prune old spans).
 
 ## Phase 6 — Interop & performance
 Pillar 4 + hardening.

@@ -228,14 +228,8 @@ class FlowTracker
 
     private function newSpan(): FlowSpan
     {
-        $span = new FlowSpan();
-
-        $connection = $this->config->get('flow.connection');
-        if ($connection !== null) {
-            $span->setConnection((string) $connection);
-        }
-
-        return $span;
+        // FlowSpan::getConnectionName() resolves flow.connection itself.
+        return new FlowSpan();
     }
 
     private function newTraceId(): string
