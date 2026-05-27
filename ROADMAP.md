@@ -1,0 +1,139 @@
+# NestedFlowTracker — 2.0 Roadmap
+
+Living document for the upgrade effort. We work top-down: finish a phase (or a coherent slice)
+before moving on. Check items off as they land.
+
+## Product vision (the north star)
+
+> **The zero-infra flow tracer for Laravel — wrap any block of code, see it as a timed tree,
+> across apps, stored in your own database.**
+
+Telescope traces framework internals in dev; OpenTelemetry needs collectors + a backend. Our
+wedge is the gap between them: **no infrastructure, works in production, traces *your* logical
+business flows, and ships with its own viewer.** We optimize for **adoption** — modern style,
+usefulness, and ease of use.
+
+The four pillars we build toward:
+1. **An API people enjoy** — closure spans (`Flow::span('name', fn () => …)`) that auto-close and
+   are exception-safe, killing the old LIFO start/end footgun by design. Helper + facade + DI.
+2. **Auto-instrumentation** — HTTP/queue middleware (a root span per request/job) and a
+   `#[Trace]` attribute, so users get value with zero manual calls.
+3. **A viewer** (the adoption driver) — a publishable, opt-in route rendering flows by trace id
+   as a collapsible tree / mini flame-graph. This is the README screenshot that sells it.
+4. **Interop** — W3C Trace Context (`traceparent`) propagation + an optional OpenTelemetry
+   exporter, so it scales up without forcing anyone onto OTel infra.
+
+**Direction (agreed):**
+- **Modernize, drop legacy** — PHP **8.1+**, Laravel **10 / 11 / 12**.
+- **No backward-compatibility constraint** — nobody depends on this yet, so we redesign the
+  public API freely and pick clean, conventional names (`Flow`, `flow()`, `trace_id`, `FlowSpan`).
+- **Tests track the design** — Phases 1–2 used characterization tests to refactor safely; from
+  Phase 3 on, tests specify the *new* behavior.
+
+---
+
+## Phase 0 — Foundation & tooling
+Set up the scaffolding that makes every later phase safe and fast. Small, no behavior change.
+
+- [x] Create `tests/` with an orchestra/testbench harness so the package can boot Laravel +
+      an in-memory SQLite DB in tests. (`tests/TestCase.php`, `tests/SmokeTest.php`)
+- [x] Wire `composer test` end-to-end (PHPUnit 11; `phpunit.xml` updated to 10/11 schema). Green: 2/2.
+- [x] Add **GitHub Actions CI** (`.github/workflows/ci.yml`): matrix PHP 8.1/8.2/8.3 × Laravel
+      10/11/12 (invalid combos excluded), plus a static-analysis job.
+- [x] Add **Larastan/PHPStan** at level 5 with a baseline (`phpstan.neon`, `phpstan-baseline.neon`);
+      27 pre-existing findings captured to burn down in Phase 1/2.
+- [ ] Confirm/Update code style tooling (StyleCI config exists; consider Pint for local runs).
+- [x] Update `.gitignore` (build/, .phpunit.cache). Badges + `changelog.md` format: deferred.
+
+> **Local note:** `composer test` needs the `pdo_sqlite` PHP extension. CI enables it via
+> setup-php; the local Laragon PHP 8.2 php.ini was updated to enable `pdo_sqlite` + `sqlite3`.
+> Verified green locally: `composer test` (2/2) and `composer analyse` (no errors).
+
+## Phase 1 — Correctness & tests  *(first focus)*
+Pin down what the code does today, then fix the clear bugs.
+
+- [x] **Characterization tests** for current behavior (30 tests): nesting/tree via the
+      start/end stack, `tracker_id` propagation, session interaction, active/inactive switch,
+      duration capture, settings handling (message/result/context/user_id/parent_id).
+      Process-global statics reset between tests via reflection.
+- [x] Fix the **redundant/contradictory `tracker_id` logic** in `startTrack` — collapsed to a
+      single clear resolution (explicit → static → session → new); behavior preserved.
+- [x] Harden `endTrack` settings handling: array branch vs `is_scalar` + `(string)` cast (no
+      more `trim()` on arbitrary types).
+- [x] Fix the `starTrack` typo and broken array-key quotes in `readme.md` examples.
+- [x] Decide & document the contract for **unbalanced start/end** calls: kept LIFO, documented
+      explicitly in the `endTrack` docblock + a characterization test. Name-matching detection
+      deferred to the Phase 3 API redesign.
+- [x] Verify nested-set writes under sibling/nested combinations (covered by `NestingTest`).
+- [x] **Bonus:** PHPStan level 5 brought to **zero findings, no baseline** (model `@property`
+      docblocks, accurate `setTrackerId` param type, `new self()`, config excluded).
+
+## Phase 2 — Modernization (drop legacy)
+Now that behavior is pinned, raise the floor.
+
+- [x] `composer.json` bump — done in Phase 0 (PHP `^8.1`, Laravel `^10|^11|^12`, testbench,
+      PHPUnit 11, larastan).
+- [x] Adopt modern PHP: parameter/return types across the public API, typed static props where
+      safe (`$timers`, `$tracks_queue`, `$db_connection`), `: static` fluent setters on the
+      model, flattened control flow, accurate `@property`/`@param` docblocks. (Constructor
+      promotion / enums deferred to the Phase 3 instance-based redesign.)
+- [x] Replace deprecated Laravel usage: migration converted to an anonymous class with `void`
+      return types; `\Config::get(...)` → `config(...)`; provider drops the obsolete `$defer`
+      and gains `void`/`array` return types. Verified on Laravel 12.
+- [x] Remove dead code: the unused singleton scaffolding (`getInstance`/`$instance`/
+      `__construct`/`__clone`/`__wakeup`) and commented blocks are gone.
+- [x] **Bonus:** raised PHPStan to **level 6** (still clean, no baseline).
+
+## Phase 3 — Modern core + span API  *(done)*
+Pillar 1. The injectable, Octane-safe engine and the API people enjoy. **Scope: core only** —
+middleware/attributes/viewer/OTel come in later phases.
+
+- [x] **Injectable `FlowTracker` service** — all per-flow state (open-spans stack, `traceId`,
+      `userId`) is instance state; no process-global statics. Config + event dispatcher injected.
+- [x] **Container-scoped binding** (`$app->scoped`) so each request/job gets a fresh instance;
+      verified that testbench's per-test refresh isolates state with no reflection reset.
+- [x] **`span(name, closure)`** — opens/closes around the callback, **exception-safe** (`finally`),
+      returns the value, marks failed spans (records the exception). The recommended API.
+- [x] **Manual `start()`/`end()`** kept (LIFO, instance-based). Each span stores its own start
+      time on the stack, so duration no longer depends on a name lookup — the old footgun is gone.
+- [x] **Ergonomic surface:** `Flow` facade (`@method` docblocks) + `flow()` helper + DI.
+- [x] **Events** `SpanStarted` / `SpanFinished`; **`SpanStatus`** enum (running/ok/failed).
+- [x] Clean data model: `FlowSpan`, `flow_spans` table, `trace_id` (32-hex, OTel-style), `name`,
+      `status`, JSON-cast `context`/`result`; `config/flow.php` (`enabled`, `component`,
+      `connection`). Old `NestedFlowTracker` class/facade and the session coupling are gone.
+- [x] New behavioral test suite (21 tests) specifying the above; PHPStan level 6 stays clean.
+      CLAUDE.md + README rewritten for the new API.
+
+## Phase 4 — Auto-instrumentation
+Pillar 2. Value with zero manual calls.
+
+- [ ] HTTP middleware: a root span per request (method + path), failed on 5xx/exception.
+- [ ] Queue middleware / listeners: a span per job.
+- [ ] `#[Trace]` method attribute.
+- [ ] Near-zero overhead when disabled; batch/defer DB writes (flush at end of request).
+
+## Phase 5 — The viewer (adoption driver)
+Pillar 3. Make the data *visible*.
+
+- [ ] Publishable, opt-in route + UI rendering a flow by `trace_id` as a collapsible tree /
+      mini flame-graph with durations and the slow/failed path highlighted.
+- [ ] Index/list view (recent flows, filter by component/status/user), read/query API.
+- [ ] Artisan commands (inspect a flow, prune old spans).
+
+## Phase 6 — Interop & performance
+Pillar 4 + hardening.
+
+- [ ] W3C Trace Context (`traceparent`) propagation in/out across apps and outbound HTTP.
+- [ ] Optional OpenTelemetry exporter.
+- [ ] Pluggable storage drivers (DB now; log/null/OTel later); index/perf review; benchmarks.
+
+## Phase 7 — Release & launch
+- [ ] Docs site / rich README with the viewer screenshot; quickstart.
+- [ ] `changelog.md`, tag `2.0.0`, Packagist, announcement.
+
+---
+
+### How we'll work
+Each iteration: pick the next unchecked item(s), implement on a branch, keep CI green, update
+this file and `CLAUDE.md` if conventions change. Phases are ordered by dependency, not rigidly —
+we can pull a small Phase 5 win forward if it's cheap, but Phase 1's safety net comes before Phase 3.

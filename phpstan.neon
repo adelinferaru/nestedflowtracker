@@ -1,0 +1,12 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - src
+    excludePaths:
+        # Config files are declarative data; env() is legitimate inside them.
+        - src/config/*
+    # tmpDir keeps PHPStan's cache out of the project root.
+    tmpDir: build/phpstan
