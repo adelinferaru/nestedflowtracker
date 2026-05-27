@@ -3,6 +3,12 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [2.5.1] - 2026-05-27
+
+### Fixed
+- `license.md` declared the EU Public License v1.1 while `composer.json` and the README declared
+  MIT. Standardized the license file on **MIT** so all three agree (no code changes).
+
 ## [2.5.0] - 2026-05-27
 
 ### Added
@@ -95,6 +101,7 @@ auto-instrumentation, a built-in viewer, and W3C Trace Context propagation.
 
 - Initial release with the static `NestedFlowTracker::startTrack()` / `endTrack()` API.
 
+[2.5.1]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.5.1
 [2.5.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.5.0
 [2.4.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.4.0
 [2.3.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.3.0
