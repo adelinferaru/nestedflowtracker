@@ -41,6 +41,13 @@ return [
     'driver' => env('FLOW_DRIVER', 'database'),
 
     /*
+    | Buffer a whole flow in memory and bulk-insert it when the root span closes
+    | (database driver only). Far fewer writes, but spans are not persisted until
+    | the flow completes. Off by default.
+    */
+    'buffer' => env('FLOW_BUFFER', false),
+
+    /*
     | Log channel used by the `log` driver (null = the default channel).
     */
     'log' => [

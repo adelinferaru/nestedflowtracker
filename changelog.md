@@ -3,6 +3,19 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [2.4.0] - 2026-05-27
+
+### Added
+- **Buffered writes** for the database driver (`flow.buffer` / `FLOW_BUFFER`): a flow is held in
+  memory and written in a single bulk insert when its root span closes — about 8× faster than the
+  default per-span writes in the benchmark. Off by default; spans are persisted only once the flow
+  completes.
+
+### Changed
+- The viewer, `flow:show`, and the OTel export now reconstruct the tree from `parent_span_id`
+  (ordered by `started_at`) instead of the nested set, so they work for both the immediate and
+  buffered drivers. No migration required.
+
 ## [2.3.0] - 2026-05-27
 
 ### Added
@@ -75,6 +88,7 @@ auto-instrumentation, a built-in viewer, and W3C Trace Context propagation.
 
 - Initial release with the static `NestedFlowTracker::startTrack()` / `endTrack()` API.
 
+[2.4.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.4.0
 [2.3.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.3.0
 [2.2.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.2.0
 [2.1.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.1.0

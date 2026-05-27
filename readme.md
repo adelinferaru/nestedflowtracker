@@ -223,6 +223,7 @@ collector with no database.
 | `FLOW_ENABLED` | `flow.enabled` | `true` | Master switch. When off, `span()` runs your callback transparently and stores nothing. |
 | `FLOW_COMPONENT` | `flow.component` | `app` | Name of this application/service, stored on every span. |
 | `FLOW_DRIVER` | `flow.driver` | `database` | Storage driver: `database` / `log` / `null` / `otel`. |
+| `FLOW_BUFFER` | `flow.buffer` | `false` | Buffer a flow and bulk-insert on completion (database driver). |
 | `FLOW_LOG_CHANNEL` | `flow.log.channel` | `null` | Log channel for the `log` driver (null = default). |
 | `FLOW_CONNECTION` | `flow.connection` | `null` | Connection for the `flow_spans` table (null = default). |
 | `FLOW_AUTO_HTTP` | `flow.auto.http` | `false` | Auto root span per HTTP request. |
@@ -245,14 +246,16 @@ will differ**, the `database` figure especially):
 
 | Scenario | µs / span |
 | --- | --- |
-| disabled (`flow.enabled=false`) | ~1 |
+| disabled (`flow.enabled=false`) | ~2 |
 | `null` driver (tracking, no storage) | ~60 |
-| `database` driver | ~1100 |
+| `database` driver (immediate) | ~1030 |
+| `database` driver (`flow.buffer=true`) | ~125 |
 
-The `database` cost is dominated by the per-span writes. If it matters: use the `log`/`otel`
-drivers, point `flow.connection` at a separate database, or run with a deferred-write mode (on the
-[roadmap](ROADMAP.md)). `flow_spans` is indexed on `trace_id`, `span_id`, `component`, `status`,
-and `created_at`.
+The immediate `database` cost is dominated by the two writes per span. **Buffered mode**
+(`FLOW_BUFFER=true`) holds a whole flow in memory and bulk-inserts it in a single query when the
+root span closes — roughly **8× faster** here. The trade-off: spans are only persisted once the
+flow completes (a crash mid-flow loses it), so it's off by default. `flow_spans` is indexed on
+`trace_id`, `span_id`, `component`, `status`, and `created_at`.
 
 ## Testing
 

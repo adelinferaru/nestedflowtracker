@@ -5,6 +5,7 @@ namespace AdelinFeraru\NestedFlowTracker;
 use AdelinFeraru\NestedFlowTracker\Console\BenchmarkCommand;
 use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
 use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
+use AdelinFeraru\NestedFlowTracker\Drivers\BufferedDatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\DatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\LogDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\NullDriver;
@@ -41,7 +42,9 @@ class FlowServiceProvider extends ServiceProvider
                 'log' => new LogDriver($app['config']),
                 'null' => new NullDriver(),
                 'otel' => new OtelDriver($app->make(OtelExporter::class)),
-                default => new DatabaseDriver(),
+                default => $app['config']->get('flow.buffer')
+                    ? new BufferedDatabaseDriver()
+                    : new DatabaseDriver(),
             };
         });
 

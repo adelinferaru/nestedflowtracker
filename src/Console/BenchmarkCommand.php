@@ -26,7 +26,8 @@ class BenchmarkCommand extends Command
         $rows = [
             $this->bench('disabled', ['flow.enabled' => false], $flows, $spans),
             $this->bench('null driver', ['flow.enabled' => true, 'flow.driver' => 'null'], $flows, $spans),
-            $this->bench('database driver', ['flow.enabled' => true, 'flow.driver' => 'database'], $flows, $spans, true),
+            $this->bench('database', ['flow.enabled' => true, 'flow.driver' => 'database', 'flow.buffer' => false], $flows, $spans, true),
+            $this->bench('database (buffered)', ['flow.enabled' => true, 'flow.driver' => 'database', 'flow.buffer' => true], $flows, $spans, true),
         ];
 
         $this->table(['Scenario', 'Total', 'µs / span'], $rows);
