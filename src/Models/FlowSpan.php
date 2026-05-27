@@ -32,15 +32,15 @@ class FlowSpan extends Model
     protected $guarded = [];
 
     /**
-     * @return array<string, string>
+     * Declared as a property (not the casts() method) so casting works on
+     * Laravel 10 as well as 11/12 — casts() is Laravel 11+.
+     *
+     * @var array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'status' => SpanStatus::class,
-            'duration' => 'float',
-            'context' => 'array',
-            'result' => 'array',
-        ];
-    }
+    protected $casts = [
+        'status' => SpanStatus::class,
+        'duration' => 'float',
+        'context' => 'array',
+        'result' => 'array',
+    ];
 }
