@@ -11,12 +11,14 @@ use Kalnoy\Nestedset\NodeTrait;
  *
  * @property int $id
  * @property string $trace_id
+ * @property string|null $span_id 16-hex W3C/OpenTelemetry span id.
  * @property string $name
  * @property string $component
  * @property int|string|null $user_id
  * @property SpanStatus $status
  * @property string|null $message
  * @property float|null $duration Seconds elapsed between start and end.
+ * @property string|null $started_at Unix seconds (with microseconds) when the span opened.
  * @property array<string, mixed>|null $context
  * @property array<string, mixed>|null $result
  * @property int|null $parent_id

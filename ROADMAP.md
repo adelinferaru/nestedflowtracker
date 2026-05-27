@@ -145,9 +145,25 @@ storage drivers, and batched writes deferred (see below).
 - [x] **Artisan**: `flow:show {trace}` (colored tree) and `flow:prune --days` (plain delete).
 - [x] Added `guzzlehttp/guzzle` to dev deps (Laravel's HTTP client needs it; was only transitively
       present on the Laravel 12 stack). Tests on Laravel 10 & 12; PHPStan level 6 clean. Docs updated.
-- [ ] *(deferred)* Optional OpenTelemetry exporter (adds the OTel SDK — likely its own phase).
+- [x] **OpenTelemetry exporter** — delivered in **2.1** (see below).
 - [ ] *(deferred)* Pluggable storage drivers (DB now; log/null/OTel later).
 - [ ] *(deferred)* Performance: batched/deferred DB writes, index review, benchmarks.
+
+## 2.1 — OpenTelemetry export  *(done)*
+A lightweight, opt-in OTLP/HTTP exporter — **no OTel SDK dependency** (keeps the zero-infra ethos).
+
+- [x] `OtelExporter` builds OTLP-JSON and POSTs to `{endpoint}/v1/traces` via the HTTP client.
+- [x] Export on flow completion: a `SpanFinished` listener queues `ExportTrace` when a root span
+      closes (excluded from queue auto-instrumentation so we don't trace our own exporter).
+- [x] Migration adds `span_id` (16-hex) + microsecond `started_at` for correct OTLP ids/timing;
+      the outbound `traceparent` now uses the real `span_id`.
+- [x] `config('flow.otel')` (`enabled`/`endpoint`/`headers`/`timeout`/`queue`), opt-in (default off).
+- [x] Tests on Laravel 10 & 12; PHPStan level 6 clean. README/CLAUDE updated.
+
+### Still open for a future release
+- Pluggable storage drivers (DB now; log/null/OTel-direct later).
+- Performance: batched/deferred DB writes, index review, benchmarks.
+- Viewer: JSON read/query API.
 
 ## Phase 7 — Release & launch
 - [ ] Docs site / rich README with the viewer screenshot; quickstart.

@@ -79,8 +79,12 @@ class FlowTracker
             return null;
         }
 
+        $start = microtime(true);
+
         $span = $this->newSpan();
         $span->name = $name;
+        $span->span_id = bin2hex(random_bytes(8));
+        $span->started_at = number_format($start, 6, '.', '');
         $span->status = SpanStatus::Running;
         $span->component = $options['component'] ?? (string) $this->config->get('flow.component', 'app');
         $span->message = $options['message'] ?? null;
@@ -119,7 +123,7 @@ class FlowTracker
 
         $span->save();
 
-        $this->stack[] = ['span' => $span, 'start' => microtime(true)];
+        $this->stack[] = ['span' => $span, 'start' => $start];
 
         $this->events->dispatch(new SpanStarted($span));
 

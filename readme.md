@@ -179,6 +179,21 @@ Gate::define('viewFlow', fn ($user) => $user->isAdmin());
 
 Publish the views to customize them: `php artisan vendor:publish --tag="flow-views"`.
 
+## OpenTelemetry export
+
+Already running an OpenTelemetry Collector, Jaeger, or Grafana Tempo? Ship completed flows there
+too — no OTel SDK required, we just POST OTLP-JSON. When a flow's root span closes, the whole trace
+is exported on a queue.
+
+```dotenv
+FLOW_OTEL_ENABLED=true
+FLOW_OTEL_ENDPOINT=http://localhost:4318   # spans are sent to {endpoint}/v1/traces
+```
+
+> Upgrading from 2.0? OTel export needs the `span_id` / `started_at` columns — re-publish and run
+> migrations: `php artisan vendor:publish --tag="flow-migrations" && php artisan migrate`.
+> Run a queue worker so exports happen off the request.
+
 ## Configuration
 
 | Env | Config key | Default | Description |
@@ -190,6 +205,8 @@ Publish the views to customize them: `php artisan vendor:publish --tag="flow-vie
 | `FLOW_AUTO_QUEUE` | `flow.auto.queue` | `false` | Auto root span per queued job. |
 | `FLOW_VIEWER` | `flow.viewer.enabled` | `false` | Register the built-in viewer routes. |
 | `FLOW_VIEWER_PATH` | `flow.viewer.path` | `flow` | URL prefix for the viewer. |
+| `FLOW_OTEL_ENABLED` | `flow.otel.enabled` | `false` | Export completed flows to an OTLP/HTTP collector. |
+| `FLOW_OTEL_ENDPOINT` | `flow.otel.endpoint` | `null` | Collector base URL (spans go to `{endpoint}/v1/traces`). |
 
 ## Testing
 
