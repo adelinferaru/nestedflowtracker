@@ -75,4 +75,26 @@ return [
         'path' => env('FLOW_VIEWER_PATH', 'flow'),
         'middleware' => ['web'],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | OpenTelemetry export (optional)
+    |--------------------------------------------------------------------------
+    |
+    | Ship completed flows to an OTLP/HTTP collector (e.g. an OpenTelemetry
+    | Collector, Jaeger, Grafana Tempo). When a root span closes, the whole
+    | trace is exported on a queue. No SDK required — we POST OTLP-JSON.
+    |
+    |   - endpoint: collector base URL; spans go to {endpoint}/v1/traces.
+    |   - headers:  extra headers (e.g. auth) for the collector request.
+    |   - queue:    queue the export job runs on (null = default).
+    |
+    */
+    'otel' => [
+        'enabled' => env('FLOW_OTEL_ENABLED', false),
+        'endpoint' => env('FLOW_OTEL_ENDPOINT'),
+        'headers' => [],
+        'timeout' => env('FLOW_OTEL_TIMEOUT', 5),
+        'queue' => env('FLOW_OTEL_QUEUE'),
+    ],
 ];

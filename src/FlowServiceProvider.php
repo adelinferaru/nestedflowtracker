@@ -4,9 +4,11 @@ namespace AdelinFeraru\NestedFlowTracker;
 
 use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
 use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
+use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\Authorize;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\TrackRequest;
+use AdelinFeraru\NestedFlowTracker\Otel\ExportTrace;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Client\PendingRequest;
@@ -53,6 +55,10 @@ class FlowServiceProvider extends ServiceProvider
             $this->registerViewer();
         }
 
+        if ($config->get('flow.otel.enabled') && $config->get('flow.otel.endpoint')) {
+            $this->registerOtelExport();
+        }
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/config/flow.php' => config_path('flow.php'),
@@ -87,8 +93,9 @@ class FlowServiceProvider extends ServiceProvider
             $traceId = $flow->traceId();
 
             if ($traceId !== null) {
-                $context = new TraceContext($traceId, TraceContext::spanId($flow->currentSpan()?->id));
-                $this->withHeaders(['traceparent' => $context->toHeader()]);
+                $current = $flow->currentSpan();
+                $spanId = ($current !== null ? $current->span_id : null) ?? TraceContext::spanId(null);
+                $this->withHeaders(['traceparent' => (new TraceContext($traceId, $spanId))->toHeader()]);
             }
 
             return $this;
@@ -148,6 +155,9 @@ class FlowServiceProvider extends ServiceProvider
         $events = $this->app['events'];
 
         $events->listen(JobProcessing::class, function (JobProcessing $event): void {
+            if ($event->job->resolveName() === ExportTrace::class) {
+                return; // Don't trace our own exporter.
+            }
             $flow = $this->app->make(FlowTracker::class);
             // Each job is its own flow, isolated from any previous job on this worker.
             $flow->flush();
@@ -160,14 +170,45 @@ class FlowServiceProvider extends ServiceProvider
             ]);
         });
 
-        $events->listen(JobProcessed::class, function (): void {
+        $events->listen(JobProcessed::class, function (JobProcessed $event): void {
+            if ($event->job->resolveName() === ExportTrace::class) {
+                return;
+            }
             $this->app->make(FlowTracker::class)->end();
         });
 
         $events->listen(JobExceptionOccurred::class, function (JobExceptionOccurred $event): void {
+            if ($event->job->resolveName() === ExportTrace::class) {
+                return;
+            }
             $flow = $this->app->make(FlowTracker::class);
             $flow->fail($event->exception);
             $flow->end();
+        });
+    }
+
+    /**
+     * Export each completed flow (when its root span closes) to the OTLP collector.
+     */
+    private function registerOtelExport(): void
+    {
+        /** @var Dispatcher $events */
+        $events = $this->app['events'];
+
+        $queue = $this->app['config']->get('flow.otel.queue');
+
+        $events->listen(SpanFinished::class, function (SpanFinished $event) use ($queue): void {
+            // A root span closing means the whole flow is complete.
+            if ($event->span->parent_id !== null) {
+                return;
+            }
+
+            $job = new ExportTrace($event->span->trace_id);
+            if ($queue !== null) {
+                $job->onQueue((string) $queue);
+            }
+
+            dispatch($job);
         });
     }
 }

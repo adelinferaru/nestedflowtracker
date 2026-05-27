@@ -3,6 +3,18 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [2.1.0] - 2026-05-27
+
+### Added
+- **OpenTelemetry export** (opt-in, no SDK dependency): when a flow's root span closes, the whole
+  trace is exported as OTLP-JSON to an OTLP/HTTP collector (`{endpoint}/v1/traces`) on a queue.
+  Configure via `flow.otel.*` (`FLOW_OTEL_ENABLED` / `FLOW_OTEL_ENDPOINT`).
+- `span_id` (16-hex) and microsecond `started_at` columns on `flow_spans` for correct OTLP span
+  ids and timing. The outbound `traceparent` now uses the real `span_id`.
+
+### Upgrade notes
+- Run the new migration: `php artisan vendor:publish --tag="flow-migrations" && php artisan migrate`.
+
 ## [2.0.0] - 2026-05-27
 
 A ground-up rewrite into a modern, injectable flow tracer with an ergonomic span API,
@@ -40,4 +52,5 @@ auto-instrumentation, a built-in viewer, and W3C Trace Context propagation.
 
 - Initial release with the static `NestedFlowTracker::startTrack()` / `endTrack()` API.
 
+[2.1.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.1.0
 [2.0.0]: https://github.com/adelinferaru/nestedflowtracker/releases/tag/2.0.0
