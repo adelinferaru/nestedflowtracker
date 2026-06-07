@@ -2,6 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Drivers;
 
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
 

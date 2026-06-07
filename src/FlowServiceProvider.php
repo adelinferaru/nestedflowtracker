@@ -6,13 +6,13 @@ use AdelinFeraru\NestedFlowTracker\Bridge\PsrEventDispatcher;
 use AdelinFeraru\NestedFlowTracker\Console\BenchmarkCommand;
 use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
 use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\LogDriver;
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\NullDriver;
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
 use AdelinFeraru\NestedFlowTracker\Drivers\BufferedDatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\DatabaseDriver;
-use AdelinFeraru\NestedFlowTracker\Drivers\LogDriver;
-use AdelinFeraru\NestedFlowTracker\Drivers\NullDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\OtelDriver;
-use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowApiController;
@@ -26,6 +26,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -42,7 +43,7 @@ class FlowServiceProvider extends ServiceProvider
         // in-memory buffer is per request/job.
         $this->app->scoped(SpanDriver::class, function ($app) {
             return match ($app['config']->get('flow.driver', 'database')) {
-                'log' => new LogDriver($app['config']),
+                'log' => new LogDriver(Log::channel($app['config']->get('flow.log.channel'))),
                 'null' => new NullDriver(),
                 'otel' => new OtelDriver($app->make(OtelExporter::class)),
                 default => $app['config']->get('flow.buffer')

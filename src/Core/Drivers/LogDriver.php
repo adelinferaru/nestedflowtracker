@@ -1,19 +1,21 @@
 <?php
 
-namespace AdelinFeraru\NestedFlowTracker\Drivers;
+namespace AdelinFeraru\NestedFlowTracker\Core\Drivers;
 
 use AdelinFeraru\NestedFlowTracker\Core\Span;
-use Illuminate\Contracts\Config\Repository as Config;
-use Illuminate\Support\Facades\Log;
+use Psr\Log\LoggerInterface;
 
 /**
- * Writes each finished span as a structured log line. No database — so the viewer
- * and the artisan commands don't apply.
+ * Writes each finished span as a structured log line through a PSR-3 logger.
+ * No database — so the viewer and the artisan commands don't apply.
+ *
+ * Pass any PSR-3 logger (Monolog, Laravel's Log::channel(), etc.); the package's
+ * service provider wires Laravel's channel automatically when `flow.driver = log`.
  */
 class LogDriver implements SpanDriver
 {
     public function __construct(
-        private readonly Config $config,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -23,9 +25,7 @@ class LogDriver implements SpanDriver
 
     public function closing(Span $span): void
     {
-        $channel = $this->config->get('flow.log.channel');
-
-        Log::channel($channel)->info('flow.span', [
+        $this->logger->info('flow.span', [
             'trace_id' => $span->trace_id,
             'span_id' => $span->span_id,
             'parent_span_id' => $span->parent_span_id,

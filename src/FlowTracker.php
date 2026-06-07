@@ -2,9 +2,9 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
 use AdelinFeraru\NestedFlowTracker\Core\Span;
-use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Events\SpanStarted;

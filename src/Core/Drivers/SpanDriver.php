@@ -1,6 +1,6 @@
 <?php
 
-namespace AdelinFeraru\NestedFlowTracker\Drivers;
+namespace AdelinFeraru\NestedFlowTracker\Core\Drivers;
 
 use AdelinFeraru\NestedFlowTracker\Core\Span;
 
