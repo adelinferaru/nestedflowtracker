@@ -2,9 +2,11 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Bridge\PsrEventDispatcher;
 use AdelinFeraru\NestedFlowTracker\Console\BenchmarkCommand;
 use AdelinFeraru\NestedFlowTracker\Console\PruneCommand;
 use AdelinFeraru\NestedFlowTracker\Console\ShowFlowCommand;
+use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
 use AdelinFeraru\NestedFlowTracker\Drivers\BufferedDatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\DatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\LogDriver;
@@ -50,8 +52,19 @@ class FlowServiceProvider extends ServiceProvider
         });
 
         // Scoped so each HTTP request / queued job gets a fresh tracker (state is
-        // flushed between them under Octane). Config + dispatcher + driver are autowired.
-        $this->app->scoped(FlowTracker::class);
+        // flushed between them under Octane). FlowConfig is built from config('flow.*');
+        // Laravel's dispatcher is adapted to PSR-14 (what FlowTracker depends on) so
+        // the core stays framework-agnostic.
+        $this->app->scoped(FlowTracker::class, function ($app) {
+            return new FlowTracker(
+                new FlowConfig(
+                    enabled: (bool) $app['config']->get('flow.enabled', true),
+                    component: (string) $app['config']->get('flow.component', 'app'),
+                ),
+                new PsrEventDispatcher($app['events']),
+                $app->make(SpanDriver::class),
+            );
+        });
     }
 
     /**

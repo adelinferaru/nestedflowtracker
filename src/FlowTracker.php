@@ -2,14 +2,14 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
 use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Events\SpanStarted;
 use Closure;
-use Illuminate\Contracts\Config\Repository as Config;
-use Illuminate\Contracts\Events\Dispatcher as Events;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Throwable;
 
 /**
@@ -27,8 +27,8 @@ class FlowTracker
     private int|string|null $userId = null;
 
     public function __construct(
-        private readonly Config $config,
-        private readonly Events $events,
+        private readonly FlowConfig $config,
+        private readonly EventDispatcherInterface $events,
         private readonly SpanDriver $driver,
     ) {
     }
@@ -38,7 +38,7 @@ class FlowTracker
      */
     public function enabled(): bool
     {
-        return (bool) $this->config->get('flow.enabled', true);
+        return $this->config->enabled;
     }
 
     /**
@@ -88,7 +88,7 @@ class FlowTracker
         $span->span_id = bin2hex(random_bytes(8));
         $span->started_at = number_format($start, 6, '.', '');
         $span->status = SpanStatus::Running;
-        $span->component = $options['component'] ?? (string) $this->config->get('flow.component', 'app');
+        $span->component = $options['component'] ?? $this->config->component;
         $span->message = $options['message'] ?? null;
 
         if (array_key_exists('context', $options)) {
