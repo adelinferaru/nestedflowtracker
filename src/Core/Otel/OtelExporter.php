@@ -1,56 +1,50 @@
 <?php
 
-namespace AdelinFeraru\NestedFlowTracker\Otel;
+namespace AdelinFeraru\NestedFlowTracker\Core\Otel;
 
 use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
-use Illuminate\Contracts\Config\Repository as Config;
-use Illuminate\Support\Facades\Http;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 
 /**
- * Exports a recorded flow to an OTLP/HTTP collector as OTLP-JSON. No OpenTelemetry
- * SDK is required — we build the payload and POST it to {endpoint}/v1/traces.
+ * Exports recorded flows to an OTLP/HTTP collector as OTLP-JSON. No OpenTelemetry
+ * SDK is required — we build the payload and POST it to {endpoint}/v1/traces via
+ * a PSR-18 HTTP client and PSR-17 request/stream factories. Use any compliant
+ * implementation (Guzzle, Symfony HttpClient, etc.).
  */
 class OtelExporter
 {
     public function __construct(
-        private readonly Config $config,
+        private readonly OtelExporterConfig $config,
+        private readonly ClientInterface $client,
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
     ) {
     }
 
     /**
-     * Export a trace stored in the database (used by the queued ExportTrace job).
-     */
-    public function export(string $traceId): void
-    {
-        $rows = FlowSpan::query()->where('trace_id', $traceId)->orderBy('started_at')->get();
-        if ($rows->isEmpty()) {
-            return;
-        }
-
-        $spans = $rows->map(fn (FlowSpan $row) => $this->fromEloquent($row))->all();
-        $this->exportSpans($spans);
-    }
-
-    /**
-     * Export a set of spans to the OTLP collector.
-     *
      * @param iterable<Span> $spans
      */
     public function exportSpans(iterable $spans): void
     {
-        $endpoint = $this->config->get('flow.otel.endpoint');
-        if (empty($endpoint)) {
+        if ($this->config->endpoint === '') {
             return;
         }
 
-        /** @var array<string, mixed> $headers */
-        $headers = $this->config->get('flow.otel.headers', []) ?: [];
+        $payload = (string) json_encode($this->toOtlp($spans));
+        $url = rtrim($this->config->endpoint, '/') . '/v1/traces';
 
-        Http::withHeaders($headers)
-            ->timeout((int) $this->config->get('flow.otel.timeout', 5))
-            ->post(rtrim((string) $endpoint, '/') . '/v1/traces', $this->toOtlp($spans));
+        $request = $this->requestFactory->createRequest('POST', $url)
+            ->withHeader('Content-Type', 'application/json')
+            ->withBody($this->streamFactory->createStream($payload));
+
+        foreach ($this->config->headers as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+
+        $this->client->sendRequest($request);
     }
 
     /**
@@ -82,13 +76,11 @@ class OtelExporter
             $otlpSpans[] = $otlpSpan;
         }
 
-        $service = (string) $this->config->get('flow.component', 'app');
-
         return [
             'resourceSpans' => [[
                 'resource' => [
                     'attributes' => [
-                        ['key' => 'service.name', 'value' => ['stringValue' => $service]],
+                        ['key' => 'service.name', 'value' => ['stringValue' => $this->config->serviceName]],
                     ],
                 ],
                 'scopeSpans' => [[
@@ -138,28 +130,5 @@ class OtelExporter
         $micros = str_pad(substr($micros, 0, 6), 6, '0');
 
         return ((int) $seconds) * 1_000_000_000 + ((int) $micros) * 1_000;
-    }
-
-    /**
-     * Hydrate a framework-agnostic Span from a persisted Eloquent row so the
-     * exporter only needs to walk one shape.
-     */
-    private function fromEloquent(FlowSpan $row): Span
-    {
-        $span = new Span();
-        $span->trace_id = (string) $row->trace_id;
-        $span->span_id = $row->span_id;
-        $span->parent_span_id = $row->parent_span_id;
-        $span->name = (string) $row->name;
-        $span->component = (string) $row->component;
-        $span->user_id = $row->user_id;
-        $span->status = $row->status;
-        $span->message = $row->message;
-        $span->duration = $row->duration;
-        $span->started_at = $row->started_at;
-        $span->context = $row->context;
-        $span->result = $row->result;
-
-        return $span;
     }
 }

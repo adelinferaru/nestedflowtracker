@@ -10,11 +10,17 @@ use AdelinFeraru\NestedFlowTracker\Core\Drivers\LogDriver;
 use AdelinFeraru\NestedFlowTracker\Core\Drivers\NullDriver;
 use AdelinFeraru\NestedFlowTracker\Core\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
+use AdelinFeraru\NestedFlowTracker\Core\Otel\OtelExporter;
+use AdelinFeraru\NestedFlowTracker\Core\Otel\OtelExporterConfig;
 use AdelinFeraru\NestedFlowTracker\Drivers\BufferedDatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\DatabaseDriver;
 use AdelinFeraru\NestedFlowTracker\Drivers\OtelDriver;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
-use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
+use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Psr7\HttpFactory;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowApiController;
 use AdelinFeraru\NestedFlowTracker\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Http\Middleware\Authorize;
@@ -50,6 +56,34 @@ class FlowServiceProvider extends ServiceProvider
                     ? new BufferedDatabaseDriver()
                     : new DatabaseDriver(),
             };
+        });
+
+        // The Core OTLP exporter depends only on PSR-18/PSR-17. Default to Guzzle
+        // (already in our require set), but bind the interfaces independently so
+        // tests or downstream apps can substitute their own implementations.
+        $this->app->bindIf(ClientInterface::class, function ($app) {
+            return new GuzzleClient([
+                'timeout' => (int) $app['config']->get('flow.otel.timeout', 5),
+            ]);
+        });
+        $this->app->singletonIf(RequestFactoryInterface::class, HttpFactory::class);
+        $this->app->singletonIf(StreamFactoryInterface::class, HttpFactory::class);
+
+        $this->app->bind(OtelExporter::class, function ($app) {
+            $config = $app['config'];
+            /** @var array<string, string> $headers */
+            $headers = $config->get('flow.otel.headers') ?: [];
+
+            return new OtelExporter(
+                new OtelExporterConfig(
+                    endpoint: (string) $config->get('flow.otel.endpoint', ''),
+                    headers: $headers,
+                    serviceName: (string) $config->get('flow.component', 'app'),
+                ),
+                $app->make(ClientInterface::class),
+                $app->make(RequestFactoryInterface::class),
+                $app->make(StreamFactoryInterface::class),
+            );
         });
 
         // Scoped so each HTTP request / queued job gets a fresh tracker (state is

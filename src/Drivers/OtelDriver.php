@@ -3,8 +3,8 @@
 namespace AdelinFeraru\NestedFlowTracker\Drivers;
 
 use AdelinFeraru\NestedFlowTracker\Core\Drivers\SpanDriver;
+use AdelinFeraru\NestedFlowTracker\Core\Otel\OtelExporter;
 use AdelinFeraru\NestedFlowTracker\Core\Span;
-use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
 
 /**
  * Sends spans straight to an OTLP/HTTP collector with no database. Spans are
