@@ -2,12 +2,12 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Events;
 
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Core\Span;
 
 class SpanStarted
 {
     public function __construct(
-        public readonly FlowSpan $span
+        public readonly Span $span
     ) {
     }
 }

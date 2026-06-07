@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Drivers;
 
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
 
 /**
@@ -11,7 +11,7 @@ use AdelinFeraru\NestedFlowTracker\Otel\OtelExporter;
  */
 class OtelDriver implements SpanDriver
 {
-    /** @var list<FlowSpan> */
+    /** @var list<Span> */
     private array $buffer = [];
 
     public function __construct(
@@ -19,11 +19,11 @@ class OtelDriver implements SpanDriver
     ) {
     }
 
-    public function opening(FlowSpan $span, ?FlowSpan $parent): void
+    public function opening(Span $span, ?Span $parent): void
     {
     }
 
-    public function closing(FlowSpan $span): void
+    public function closing(Span $span): void
     {
         $this->buffer[] = $span;
 

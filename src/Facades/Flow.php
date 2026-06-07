@@ -7,10 +7,10 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static mixed span(string $name, \Closure $callback, array<string, mixed> $options = [])
- * @method static \AdelinFeraru\NestedFlowTracker\Models\FlowSpan|null start(string $name, array<string, mixed> $options = [])
- * @method static \AdelinFeraru\NestedFlowTracker\Models\FlowSpan|null end(array<string, mixed> $options = [])
+ * @method static \AdelinFeraru\NestedFlowTracker\Core\Span|null start(string $name, array<string, mixed> $options = [])
+ * @method static \AdelinFeraru\NestedFlowTracker\Core\Span|null end(array<string, mixed> $options = [])
  * @method static void fail(\Throwable $e, array<string, mixed> $context = [])
- * @method static \AdelinFeraru\NestedFlowTracker\Models\FlowSpan|null currentSpan()
+ * @method static \AdelinFeraru\NestedFlowTracker\Core\Span|null currentSpan()
  * @method static string|null traceId()
  * @method static \AdelinFeraru\NestedFlowTracker\FlowTracker setTraceId(string $traceId)
  * @method static \AdelinFeraru\NestedFlowTracker\FlowTracker setUser(int|string|null $userId)

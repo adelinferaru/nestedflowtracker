@@ -2,6 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Otel;
 
+use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -23,16 +24,19 @@ class OtelExporter
      */
     public function export(string $traceId): void
     {
-        $spans = FlowSpan::query()->where('trace_id', $traceId)->orderBy('started_at')->get();
-        if ($spans->isNotEmpty()) {
-            $this->exportSpans($spans);
+        $rows = FlowSpan::query()->where('trace_id', $traceId)->orderBy('started_at')->get();
+        if ($rows->isEmpty()) {
+            return;
         }
+
+        $spans = $rows->map(fn (FlowSpan $row) => $this->fromEloquent($row))->all();
+        $this->exportSpans($spans);
     }
 
     /**
-     * Export a set of spans (database-loaded or in-memory) to the OTLP collector.
+     * Export a set of spans to the OTLP collector.
      *
-     * @param iterable<FlowSpan> $spans
+     * @param iterable<Span> $spans
      */
     public function exportSpans(iterable $spans): void
     {
@@ -50,7 +54,7 @@ class OtelExporter
     }
 
     /**
-     * @param iterable<FlowSpan> $spans
+     * @param iterable<Span> $spans
      * @return array<string, mixed>
      */
     private function toOtlp(iterable $spans): array
@@ -98,7 +102,7 @@ class OtelExporter
     /**
      * @return list<array<string, mixed>>
      */
-    private function attributes(FlowSpan $span): array
+    private function attributes(Span $span): array
     {
         $attributes = [
             ['key' => 'flow.component', 'value' => ['stringValue' => $span->component]],
@@ -134,5 +138,28 @@ class OtelExporter
         $micros = str_pad(substr($micros, 0, 6), 6, '0');
 
         return ((int) $seconds) * 1_000_000_000 + ((int) $micros) * 1_000;
+    }
+
+    /**
+     * Hydrate a framework-agnostic Span from a persisted Eloquent row so the
+     * exporter only needs to walk one shape.
+     */
+    private function fromEloquent(FlowSpan $row): Span
+    {
+        $span = new Span();
+        $span->trace_id = (string) $row->trace_id;
+        $span->span_id = $row->span_id;
+        $span->parent_span_id = $row->parent_span_id;
+        $span->name = (string) $row->name;
+        $span->component = (string) $row->component;
+        $span->user_id = $row->user_id;
+        $span->status = $row->status;
+        $span->message = $row->message;
+        $span->duration = $row->duration;
+        $span->started_at = $row->started_at;
+        $span->context = $row->context;
+        $span->result = $row->result;
+
+        return $span;
     }
 }

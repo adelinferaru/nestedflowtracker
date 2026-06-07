@@ -224,7 +224,7 @@ class FlowServiceProvider extends ServiceProvider
 
         $events->listen(SpanFinished::class, function (SpanFinished $event) use ($queue): void {
             // A root span closing means the whole flow is complete.
-            if ($event->span->parent_id !== null) {
+            if ($event->span->parent_span_id !== null) {
                 return;
             }
 

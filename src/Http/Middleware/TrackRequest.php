@@ -2,9 +2,9 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Http\Middleware;
 
+use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\FlowTracker;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
 use AdelinFeraru\NestedFlowTracker\TraceContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -35,7 +35,7 @@ class TrackRequest
         $route = $request->route();
         $name = $request->method() . ' ' . ($route?->uri() ?? $request->path());
 
-        return $this->flow->span($name, function (?FlowSpan $span) use ($next, $request) {
+        return $this->flow->span($name, function (?Span $span) use ($next, $request) {
             $response = $next($request);
 
             if ($span !== null && $response instanceof Response) {

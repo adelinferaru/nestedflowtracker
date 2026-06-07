@@ -2,6 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
+use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Facades\Flow;
 use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
@@ -30,7 +31,7 @@ class SpanTest extends TestCase
 
     public function test_span_passes_the_span_to_the_callback(): void
     {
-        Flow::span('enrich', function (?FlowSpan $span) {
+        Flow::span('enrich', function (?Span $span) {
             $span->result = ['handled' => true];
         });
 

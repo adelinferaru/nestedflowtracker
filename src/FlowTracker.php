@@ -2,11 +2,11 @@
 
 namespace AdelinFeraru\NestedFlowTracker;
 
+use AdelinFeraru\NestedFlowTracker\Core\Span;
 use AdelinFeraru\NestedFlowTracker\Drivers\SpanDriver;
 use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
 use AdelinFeraru\NestedFlowTracker\Events\SpanStarted;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Contracts\Events\Dispatcher as Events;
@@ -19,7 +19,7 @@ use Throwable;
  */
 class FlowTracker
 {
-    /** @var list<array{span: FlowSpan, start: float}> Open spans, innermost last. */
+    /** @var list<array{span: Span, start: float}> Open spans, innermost last. */
     private array $stack = [];
 
     private ?string $traceId = null;
@@ -46,7 +46,7 @@ class FlowTracker
      * and returns the callback's value untouched. This is the recommended API.
      *
      * @template TReturn
-     * @param Closure(FlowSpan|null): TReturn $callback
+     * @param Closure(Span|null): TReturn $callback
      * @param array<string, mixed> $options
      * @return TReturn
      */
@@ -75,7 +75,7 @@ class FlowTracker
      * @param array<string, mixed> $options trace_id, root, parent_id, user_id, component,
      *                                       message, context, result.
      */
-    public function start(string $name, array $options = []): ?FlowSpan
+    public function start(string $name, array $options = []): ?Span
     {
         if (! $this->enabled()) {
             return null;
@@ -139,7 +139,7 @@ class FlowTracker
      *
      * @param array<string, mixed> $options message, context, result, status overrides.
      */
-    public function end(array $options = []): ?FlowSpan
+    public function end(array $options = []): ?Span
     {
         if (! $this->enabled() || $this->stack === []) {
             return null;
@@ -189,7 +189,7 @@ class FlowTracker
     /**
      * The innermost open span, or null when no span is open.
      */
-    public function currentSpan(): ?FlowSpan
+    public function currentSpan(): ?Span
     {
         $entry = end($this->stack);
 
@@ -234,10 +234,9 @@ class FlowTracker
         $this->userId = null;
     }
 
-    private function newSpan(): FlowSpan
+    private function newSpan(): Span
     {
-        // FlowSpan::getConnectionName() resolves flow.connection itself.
-        return new FlowSpan();
+        return new Span();
     }
 
     private function newTraceId(): string
