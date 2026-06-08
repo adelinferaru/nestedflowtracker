@@ -2,25 +2,28 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests\Drivers;
 
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Tests\Support\RecordingHttpClient;
 use AdelinFeraru\NestedFlowTracker\Tests\TestCase;
-use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Http;
+use Psr\Http\Client\ClientInterface;
 
 class OtelDriverTest extends TestCase
 {
+    private RecordingHttpClient $http;
+
     protected function defineEnvironment($app): void
     {
         parent::defineEnvironment($app);
         $app['config']->set('flow.driver', 'otel');
         $app['config']->set('flow.otel.endpoint', 'http://collector:4318');
+
+        $this->http = new RecordingHttpClient();
+        $app->instance(ClientInterface::class, $this->http);
     }
 
     public function test_flow_is_exported_directly_without_touching_the_database(): void
     {
-        Http::fake();
-
         Flow::span('checkout', function () {
             Flow::span('charge card', fn () => null);
         });
@@ -29,20 +32,19 @@ class OtelDriverTest extends TestCase
         // Nothing is stored in the database with the otel driver.
         $this->assertSame(0, FlowSpan::query()->count());
 
-        Http::assertSent(function (Request $request) use ($trace) {
-            if ($request->url() !== 'http://collector:4318/v1/traces') {
-                return false;
-            }
+        $this->assertCount(1, $this->http->sent);
+        $request = $this->http->sent[0];
+        $this->assertSame('http://collector:4318/v1/traces', (string) $request->getUri());
 
-            $spans = $request->data()['resourceSpans'][0]['scopeSpans'][0]['spans'] ?? [];
-            $names = collect($spans)->pluck('name')->all();
-            $child = collect($spans)->firstWhere('name', 'charge card');
+        $payload = json_decode((string) $request->getBody(), true);
+        $spans = $payload['resourceSpans'][0]['scopeSpans'][0]['spans'] ?? [];
+        $names = collect($spans)->pluck('name')->all();
+        $child = collect($spans)->firstWhere('name', 'charge card');
 
-            return count($spans) === 2
-                && in_array('checkout', $names, true)
-                && collect($spans)->every(fn ($s) => $s['traceId'] === $trace)
-                // the child carries the root's span id as its parent
-                && isset($child['parentSpanId']);
-        });
+        $this->assertCount(2, $spans);
+        $this->assertContains('checkout', $names);
+        $this->assertTrue(collect($spans)->every(fn ($s) => $s['traceId'] === $trace));
+        $this->assertNotNull($child);
+        $this->assertArrayHasKey('parentSpanId', $child);
     }
 }

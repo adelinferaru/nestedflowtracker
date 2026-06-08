@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\TraceContext;
+use AdelinFeraru\NestedFlowTracker\Core\TraceContext;
 
 class TraceContextTest extends TestCase
 {

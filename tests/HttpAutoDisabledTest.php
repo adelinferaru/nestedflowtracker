@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 
 /**
  * With flow.auto.http off (the default), requests are not instrumented.

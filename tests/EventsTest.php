@@ -2,9 +2,9 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
-use AdelinFeraru\NestedFlowTracker\Events\SpanStarted;
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Core\Events\SpanFinished;
+use AdelinFeraru\NestedFlowTracker\Core\Events\SpanStarted;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
 use Illuminate\Support\Facades\Event;
 
 class EventsTest extends TestCase

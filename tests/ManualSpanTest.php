@@ -2,9 +2,10 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Core\Span;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 
 class ManualSpanTest extends TestCase
 {
@@ -12,7 +13,7 @@ class ManualSpanTest extends TestCase
     {
         $span = Flow::start('task');
 
-        $this->assertInstanceOf(FlowSpan::class, $span);
+        $this->assertInstanceOf(Span::class, $span);
         $this->assertSame(SpanStatus::Running, $span->status);
         $this->assertNull($span->duration);
     }
@@ -22,7 +23,7 @@ class ManualSpanTest extends TestCase
         $span = Flow::start('task');
         $closed = Flow::end();
 
-        $this->assertSame($span->id, $closed?->id);
+        $this->assertSame($span->span_id, $closed?->span_id);
         $this->assertSame(SpanStatus::Ok, $closed->status);
         $this->assertNotNull($closed->duration);
     }
@@ -40,7 +41,9 @@ class ManualSpanTest extends TestCase
         Flow::end();
         Flow::end();
 
-        $this->assertSame($root->id, FlowSpan::find($child->id)->parent_id);
+        $rootRow = FlowSpan::query()->where('span_id', $root->span_id)->firstOrFail();
+        $childRow = FlowSpan::query()->where('span_id', $child->span_id)->firstOrFail();
+        $this->assertSame($rootRow->id, $childRow->parent_id);
     }
 
     public function test_end_options_override_fields(): void
@@ -58,9 +61,27 @@ class ManualSpanTest extends TestCase
         $this->assertNull(Flow::currentSpan());
 
         $span = Flow::start('task');
-        $this->assertSame($span->id, Flow::currentSpan()?->id);
+        $this->assertSame($span->span_id, Flow::currentSpan()?->span_id);
 
         Flow::end();
         $this->assertNull(Flow::currentSpan());
+    }
+
+    public function test_end_accepts_a_string_status_for_2x_compatibility(): void
+    {
+        Flow::start('task');
+        Flow::end(['status' => 'failed']);
+
+        $span = FlowSpan::query()->firstOrFail();
+        $this->assertSame(SpanStatus::Failed, $span->status);
+    }
+
+    public function test_end_accepts_a_span_status_enum(): void
+    {
+        Flow::start('task');
+        Flow::end(['status' => SpanStatus::Failed]);
+
+        $span = FlowSpan::query()->firstOrFail();
+        $this->assertSame(SpanStatus::Failed, $span->status);
     }
 }

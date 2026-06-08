@@ -47,6 +47,12 @@ jobs:
         run: |
           composer require "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
 
+      - name: Allow installing advisory-flagged Laravel versions in CI
+        # The support matrix includes Laravel 10/11, whose releases now carry
+        # public security advisories. We accept them in CI (this is a test run,
+        # not a production install) so the matrix can keep covering both lines.
+        run: composer config --no-plugins policy.advisories.block false
+
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress
 
@@ -67,6 +73,9 @@ jobs:
           php-version: '8.3'
           extensions: pdo, sqlite3, pdo_sqlite, mbstring
           coverage: none
+
+      - name: Allow installing advisory-flagged Laravel versions in CI
+        run: composer config --no-plugins policy.advisories.block false
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress

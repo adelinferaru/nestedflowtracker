@@ -2,8 +2,8 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests\Drivers;
 
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 use AdelinFeraru\NestedFlowTracker\Tests\TestCase;
 use Illuminate\Support\Facades\Log;
 
