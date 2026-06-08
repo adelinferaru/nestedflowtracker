@@ -10,10 +10,10 @@ use Psr\EventDispatcher\EventDispatcherInterface;
  * standard interface and stay framework-agnostic. Laravel's dispatcher accepts
  * objects already; this just enforces the PSR-14 return contract.
  */
-final readonly class PsrEventDispatcher implements EventDispatcherInterface
+final class PsrEventDispatcher implements EventDispatcherInterface
 {
     public function __construct(
-        private LaravelDispatcher $events,
+        private readonly LaravelDispatcher $events,
     ) {
     }
 

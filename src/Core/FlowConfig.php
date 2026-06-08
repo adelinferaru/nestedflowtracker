@@ -7,11 +7,11 @@ namespace AdelinFeraru\NestedFlowTracker\Core;
  * builds one of these from config('flow.*') in its service provider; non-Laravel
  * callers construct it directly when instantiating FlowTracker.
  */
-final readonly class FlowConfig
+final class FlowConfig
 {
     public function __construct(
-        public bool $enabled = true,
-        public string $component = 'app',
+        public readonly bool $enabled = true,
+        public readonly string $component = 'app',
     ) {
     }
 }

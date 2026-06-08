@@ -8,15 +8,15 @@ namespace AdelinFeraru\NestedFlowTracker\Core\Otel;
  * HTTP timeout is intentionally not here — set it on the PSR-18 client when you
  * construct it; PSR-18 has no transport-level timeout knob.
  */
-final readonly class OtelExporterConfig
+final class OtelExporterConfig
 {
     /**
      * @param array<string, string> $headers Extra headers (e.g. auth) added to every export.
      */
     public function __construct(
-        public string $endpoint,
-        public array $headers = [],
-        public string $serviceName = 'app',
+        public readonly string $endpoint,
+        public readonly array $headers = [],
+        public readonly string $serviceName = 'app',
     ) {
     }
 }
