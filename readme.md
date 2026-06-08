@@ -13,8 +13,8 @@ Telescope it traces *your* business flows (not framework internals) and works in
 ![A checkout flow rendered as a timed tree in the built-in viewer](art/show.png)
 
 **Requires** PHP 8.1+. As of **3.0** the package is split into a framework-agnostic **Core** (only
-PSR-3/14/17/18 dependencies) and a **Laravel** adapter (auto-discovered on Laravel 10, 11, or 12).
-Use either side independently.
+PSR-3/14/17/18 dependencies) and a **Laravel** adapter (auto-discovered on Laravel 10, 11, 12, or 13;
+L13 needs PHP 8.3+). Use either side independently.
 
 ## Installation
 

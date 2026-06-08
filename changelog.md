@@ -3,6 +3,37 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [3.1.0] - 2026-06-08
+
+### Added
+- **Laravel 13 support.** `laravel/framework` constraint is now `^10.0|^11.0|^12.0|^13.0`;
+  `orchestra/testbench` (dev) gains `^11.0`. The CI matrix tests every PHP 8.3+ slot against L13.
+- **`Core\Span::toRow()` and `Span::toRowMutable()`** — single source of truth for the flow_spans
+  column shape and for `status` / `context` / `result` serialization. Used by every persistence
+  driver. Closes the 4-way column-list duplication the 3.0 review flagged.
+- **`options['parent_span_id']`** on `FlowTracker::start()` — attach a continuation span to a
+  known parent by passing its 16-hex span_id. Replaces `options['parent_id']`.
+
+### Changed (breaking — minor in practice)
+- **Dropped `kalnoy/nestedset` from `require`.** The Eloquent `FlowSpan` model no longer uses the
+  `NodeTrait`; the `_lft` / `_rgt` / `parent_id` columns are gone from the create migration. Every
+  reader in the package (viewer, JSON API, console, OTel exporter) already walked the tree via
+  `parent_span_id` since 2.4, so removing the nested-set bookkeeping has no behavioural impact on
+  span recording or display. `EloquentDatabaseDriver` is now ~30 lines: insert on opening, update
+  on closing, no `byId` model map. `EloquentBufferedDriver`'s row build drops the four dead column
+  keys.
+- **`options['parent_id']` is gone**, replaced by `options['parent_span_id']`. The new option sets
+  `Span::$parent_span_id` directly, so continuation spans look exactly like normal nested children
+  to every driver and to the OTel root-detection listener.
+- **`Span::$parent_id` is gone** from the Core POPO — closes the altitude finding from the 3.0
+  review. The framework-agnostic POPO now carries only framework-agnostic fields.
+
+### Upgrade notes
+There is no production-user upgrade path to document — this release ships against an empty install
+base, so the create migration was edited in place rather than paired with a cleanup migration.
+Anyone running 3.0.x against a real database can drop `_lft`, `_rgt`, and `parent_id` (the
+`kalnoy/nestedset` columns) by hand; nothing in 3.1.0 reads or writes them.
+
 ## [3.0.0] - 2026-06-08
 
 ### Changed (breaking — namespace reorganization)
