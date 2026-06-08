@@ -4,10 +4,10 @@ namespace AdelinFeraru\NestedFlowTracker\Laravel\Eloquent;
 
 use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
 use Illuminate\Database\Eloquent\Model;
-use Kalnoy\Nestedset\NodeTrait;
 
 /**
- * A single timed span within a flow. Spans form a tree (nested set) and share a trace_id.
+ * A single timed span. Spans share a trace_id and link via parent_span_id; the
+ * tree is reconstructed at read time from those two columns.
  *
  * @property int $id
  * @property string $trace_id
@@ -22,23 +22,18 @@ use Kalnoy\Nestedset\NodeTrait;
  * @property string|null $started_at Unix seconds (with microseconds) when the span opened.
  * @property array<string, mixed>|null $context
  * @property array<string, mixed>|null $result
- * @property int|null $parent_id
- * @property int $_lft
- * @property int $_rgt
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
 class FlowSpan extends Model
 {
-    use NodeTrait;
-
     protected $table = 'flow_spans';
 
     protected $guarded = [];
 
     /**
      * Declared as a property (not the casts() method) so casting works on
-     * Laravel 10 as well as 11/12 — casts() is Laravel 11+.
+     * Laravel 10 as well as 11/12/13 — casts() is Laravel 11+.
      *
      * @var array<string, string>
      */
@@ -58,4 +53,3 @@ class FlowSpan extends Model
         return config('flow.connection') ?? $this->connection;
     }
 }
-

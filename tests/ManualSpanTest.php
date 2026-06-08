@@ -41,9 +41,8 @@ class ManualSpanTest extends TestCase
         Flow::end();
         Flow::end();
 
-        $rootRow = FlowSpan::query()->where('span_id', $root->span_id)->firstOrFail();
         $childRow = FlowSpan::query()->where('span_id', $child->span_id)->firstOrFail();
-        $this->assertSame($rootRow->id, $childRow->parent_id);
+        $this->assertSame($root->span_id, $childRow->parent_span_id);
     }
 
     public function test_end_options_override_fields(): void

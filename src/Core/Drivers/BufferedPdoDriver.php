@@ -32,7 +32,7 @@ class BufferedPdoDriver implements SpanDriver
     ) {
     }
 
-    public function opening(Span $span, ?Span $parent): void
+    public function opening(Span $span): void
     {
     }
 
@@ -70,8 +70,7 @@ class BufferedPdoDriver implements SpanDriver
     private function writeBatch(array $batch): void
     {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
-        $columns = ['trace_id', 'span_id', 'parent_span_id', 'name', 'component', 'user_id',
-            'status', 'message', 'duration', 'started_at', 'context', 'result', 'created_at', 'updated_at'];
+        $columns = array_merge(Span::COLUMNS, ['created_at', 'updated_at']);
 
         $rowPlaceholders = '(' . str_repeat('?, ', count($columns) - 1) . '?)';
         $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES "
@@ -79,23 +78,9 @@ class BufferedPdoDriver implements SpanDriver
 
         $values = [];
         foreach ($batch as $span) {
-            array_push(
-                $values,
-                $span->trace_id,
-                $span->span_id,
-                $span->parent_span_id,
-                $span->name,
-                $span->component,
-                $span->user_id,
-                $span->status->value,
-                $span->message,
-                $span->duration,
-                $span->started_at,
-                $span->context !== null ? json_encode($span->context) : null,
-                $span->result !== null ? json_encode($span->result) : null,
-                $now,
-                $now,
-            );
+            array_push($values, ...array_values($span->toRow()));
+            $values[] = $now;
+            $values[] = $now;
         }
 
         $this->pdo->prepare($sql)->execute($values);

@@ -67,9 +67,9 @@ class SpanTest extends TestCase
         $childA = FlowSpan::query()->where('name', 'child-a')->firstOrFail();
         $childB = FlowSpan::query()->where('name', 'child-b')->firstOrFail();
 
-        $this->assertSame($root->id, $childA->parent_id);
-        $this->assertSame($root->id, $childB->parent_id);
-        $this->assertSame(2, $root->children()->count());
+        $this->assertSame($root->span_id, $childA->parent_span_id);
+        $this->assertSame($root->span_id, $childB->parent_span_id);
+        $this->assertSame(2, FlowSpan::query()->where('parent_span_id', $root->span_id)->count());
 
         // The whole flow shares a single trace id.
         $this->assertSame(1, FlowSpan::query()->distinct()->pluck('trace_id')->count());

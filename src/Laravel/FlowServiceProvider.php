@@ -272,10 +272,8 @@ class FlowServiceProvider extends ServiceProvider
         $queue = $this->app['config']->get('flow.otel.queue');
 
         $events->listen(SpanFinished::class, function (SpanFinished $event) use ($queue): void {
-            // A root span closing means the whole flow is complete. A caller-provided
-            // `options['parent_id']` means the span is a continuation attached to an
-            // existing row, so skip it too — it's not a fresh trace.
-            if ($event->span->parent_span_id !== null || $event->span->parent_id !== null) {
+            // A root span closing means the whole flow is complete.
+            if ($event->span->parent_span_id !== null) {
                 return;
             }
 

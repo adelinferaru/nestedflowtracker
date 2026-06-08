@@ -5,9 +5,9 @@ Guidance for working in this repository.
 ## What this is
 
 `adelinferaru/nestedflowtracker` — a **Laravel package** for tracing application-level execution
-flows. You wrap a block of code in a *span*; the package times it and stores it as a node in a
-**tree** (nested set), so nested sub-operations are recorded with their parent/child structure.
-A flow can span multiple applications via a shared `trace_id`.
+flows. You wrap a block of code in a *span*; the package times it and stores it as a row in a
+flat table, with the parent/child structure recorded via `parent_span_id` and reconstructed at
+read time. A flow can span multiple applications via a shared `trace_id`.
 
 Positioning (see `ROADMAP.md`): **the zero-infra flow tracer for Laravel** — no collectors/backend
 like OpenTelemetry, works in production, traces *your* business flows, and (in later phases) ships
@@ -60,12 +60,14 @@ directly.
 - `Laravel/helpers.php` — the `flow()` helper (autoloaded via composer `files`).
 - `Laravel/Bridge/PsrEventDispatcher.php` — adapts Laravel's dispatcher to PSR-14
   `EventDispatcherInterface` (one-line wrapper).
-- `Laravel/Eloquent/FlowSpan.php` — Eloquent model for `flow_spans`; `kalnoy/nestedset` `NodeTrait`
-  for the tree; casts `status` (enum), `context`/`result` (array), `duration` (float). Used by the
-  viewer/console/Eloquent drivers; **not** by `Core\FlowTracker` (which uses `Core\Span`).
-- `Laravel/Drivers/EloquentDatabaseDriver.php` — nested-set full-featured DB driver. Bridges
-  `Core\Span` (POPO) to Eloquent rows via a `span_id → FlowSpan` map maintained per flow.
-- `Laravel/Drivers/EloquentBufferedDriver.php` — like the above but bulk-inserts the whole flow on
+- `Laravel/Eloquent/FlowSpan.php` — Eloquent model for `flow_spans`. Casts `status` (enum),
+  `context`/`result` (array), `duration` (float). Used by the viewer/console/Eloquent drivers
+  for reads; writes go through the query builder so casts don't double-serialize. **Not** used by
+  `Core\FlowTracker` (which only knows about `Core\Span`).
+- `Laravel/Drivers/EloquentDatabaseDriver.php` — INSERT on `opening()`, `UPDATE WHERE span_id = ?`
+  on `closing()`. Same shape as `Core\Drivers\PdoDriver`, just on Laravel's connection (so
+  `flow.connection` and Eloquent's casts apply on the viewer side). No per-flow state.
+- `Laravel\Drivers\EloquentBufferedDriver.php` — like the above but bulk-inserts the whole flow on
   root close (`flow.buffer`). Spans aren't persisted until the flow completes.
 - `Laravel/Http/Middleware/TrackRequest.php` — wraps each HTTP request in a root span (opt-in).
 - `Laravel/Http/Middleware/Authorize.php` — guards the viewer (local env, or a `viewFlow` gate).
@@ -109,16 +111,14 @@ directly.
 - The service is bound with `$app->scoped(...)`, so each HTTP request / queued job gets a fresh
   instance and state is flushed between them under Octane.
 - **Storage driver (`flow.driver`):** `Core\FlowTracker` builds an in-memory `Core\Span` and calls
-  `$driver->opening()/closing()`. Parent linkage is by `parent_span_id` (16-hex), so non-relational
-  drivers don't need row ids. `database` persists via `Laravel\Drivers\EloquentDatabaseDriver`
-  (nested-set; enables viewer + commands + the DB OTel export); `log`/`null`/`otel` are emit-only.
-  `flow.buffer` swaps in `EloquentBufferedDriver` (one bulk insert per flow on root close; spans
-  not persisted until the flow completes). The framework-agnostic `Core\Drivers\PdoDriver` and
-  `BufferedPdoDriver` are not wired into `flow.driver`; non-Laravel callers instantiate them
-  directly.
-- **Tree reads use `parent_span_id`, ordered by `started_at`** (viewer, `flow:show`, OTel export) —
-  not `parent_id`/`_lft` — so they work for both the immediate (nested-set) and buffered drivers
-  (the buffered rows have `parent_id`/`_lft` unset).
+  `$driver->opening()/closing()`. Parent linkage is by `parent_span_id` (16-hex). `database`
+  persists via `Laravel\Drivers\EloquentDatabaseDriver` (enables viewer + commands + the DB OTel
+  export); `log`/`null`/`otel` are emit-only. `flow.buffer` swaps in `EloquentBufferedDriver`
+  (one bulk insert per flow on root close; spans not persisted until the flow completes). The
+  framework-agnostic `Core\Drivers\PdoDriver` and `BufferedPdoDriver` are not wired into
+  `flow.driver`; non-Laravel callers instantiate them directly.
+- **Tree reads use `parent_span_id`, ordered by `started_at`** (viewer, `flow:show`, OTel export)
+  — works uniformly for every driver because that's the only parent linkage in the schema.
 - Disabled (`flow.enabled = false`): `span()` becomes a transparent pass-through (runs the
   callback, returns its value); `start()`/`end()` are no-ops; nothing is written.
 - **Cross-app propagation (W3C Trace Context):** outbound via the `Http::withFlowTrace()` macro
@@ -185,7 +185,7 @@ rather than suppressing them. (`src/config/*` is excluded as declarative data.)
 
 ## Conventions & constraints
 
-- Targets PHP `^8.1` and Laravel `^10|^11|^12`. Use modern idioms (typed signatures, enums,
+- Targets PHP `^8.1` and Laravel `^10|^11|^12|^13` (L13 needs PHP 8.3+). Use modern idioms (typed signatures, enums,
   readonly, constructor promotion, anonymous migrations).
 - **Published on Packagist** (currently 2.5.x; see `changelog.md` / git tags). It follows SemVer
   now, so breaking changes need a new major; additive changes are minor, fixes are patch.

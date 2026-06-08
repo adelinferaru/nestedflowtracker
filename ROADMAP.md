@@ -198,16 +198,12 @@ Measure-first pass before optimizing.
 drivers, performance/batched writes, JSON API) have shipped. Future ideas live in GitHub issues.
 
 ## 3.0 follow-ups (deferred from the framework-agnostic split)
-- [ ] **Move `Span::$parent_id` out of `Core\Span`.** It's Eloquent-driver-only opaque metadata;
-      surfacing it as a public field on the framework-agnostic POPO sets a bad precedent (next
-      driver's identity-map handle ends up there too). Plan: extend `SpanDriver::opening()` to
-      take a `$options` array (4.x major), route `options['parent_id']` through there, and have
-      `EloquentDatabaseDriver` pluck it out.
-- [ ] **4-way span-row serialization duplication.** `Core\Drivers\PdoDriver::opening` /
-      `BufferedPdoDriver::writeBatch` and `Laravel\Drivers\EloquentDatabaseDriver::fillFromSpan` /
-      `EloquentBufferedDriver::writeBuffer` each enumerate the same 12-ish span columns. A
-      `Span::toRow(): array` helper (or equivalent) centralizes the `status->value` /
-      `json_encode($context|$result)` coercions.
+- [x] **Move `Span::$parent_id` out of `Core\Span`.** Done in 3.1.0 by deleting the field
+      outright (no users to migrate) and replacing the `options['parent_id']` continuation API
+      with `options['parent_span_id']` (16-hex span id, the canonical framework-agnostic linkage).
+- [x] **4-way span-row serialization duplication.** Done in 3.1.0 via `Core\Span::toRow()` and
+      `toRowMutable()`; both PDO drivers and both Eloquent drivers now share the column shape and
+      the `status->value` / `json_encode($context|$result)` coercions.
 
 ## Phase 7 — Release & launch
 - [ ] Docs site / rich README with the viewer screenshot; quickstart.

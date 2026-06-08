@@ -22,7 +22,7 @@ class QueueInstrumentationTest extends TestCase
 
         $span = FlowSpan::query()->firstOrFail();
         $this->assertStringContainsString('SampleJob', $span->name);
-        $this->assertNull($span->parent_id);
+        $this->assertNull($span->parent_span_id);
         $this->assertSame(SpanStatus::Ok, $span->status);
         $this->assertSame('sync', $span->context['connection']);
     }

@@ -32,7 +32,7 @@ class HttpInstrumentationTest extends TestCase
     {
         $this->get('/ping')->assertOk();
 
-        $root = FlowSpan::query()->whereNull('parent_id')->firstOrFail();
+        $root = FlowSpan::query()->whereNull('parent_span_id')->firstOrFail();
         $this->assertSame('GET ping', $root->name);
         $this->assertSame(SpanStatus::Ok, $root->status);
         $this->assertSame('GET', $root->context['method']);
@@ -46,7 +46,7 @@ class HttpInstrumentationTest extends TestCase
         $root = FlowSpan::query()->where('name', 'GET ping')->firstOrFail();
         $inner = FlowSpan::query()->where('name', 'inner work')->firstOrFail();
 
-        $this->assertSame($root->id, $inner->parent_id);
+        $this->assertSame($root->span_id, $inner->parent_span_id);
         $this->assertSame($root->trace_id, $inner->trace_id);
     }
 
@@ -54,7 +54,7 @@ class HttpInstrumentationTest extends TestCase
     {
         $this->get('/err')->assertStatus(500);
 
-        $root = FlowSpan::query()->whereNull('parent_id')->firstOrFail();
+        $root = FlowSpan::query()->whereNull('parent_span_id')->firstOrFail();
         $this->assertSame(SpanStatus::Failed, $root->status);
         $this->assertSame(500, $root->context['status']);
     }

@@ -72,8 +72,8 @@ class FlowTracker
     /**
      * Open a span manually. Prefer span() unless you cannot wrap the work in a closure.
      *
-     * @param array<string, mixed> $options trace_id, root, parent_id, user_id, component,
-     *                                       message, context, result.
+     * @param array<string, mixed> $options trace_id, root, parent_span_id, user_id,
+     *                                       component, message, context, result.
      */
     public function start(string $name, array $options = []): ?Span
     {
@@ -112,6 +112,20 @@ class FlowTracker
 
         // Nest under the currently open span unless flagged as a root.
         $parent = empty($options['root']) ? $this->currentSpan() : null;
+
+        // An explicit parent_span_id attaches the span to a known parent — used to
+        // continue a flow whose root closed earlier (e.g. resumed work in a follow-up
+        // job). To keep the trace coherent, callers must also identify the parent's
+        // trace: either pass options['trace_id'], call setTraceId() first, or have an
+        // open span on the stack whose trace_id we inherit. Otherwise the continuation
+        // would point at a parent in a freshly generated, unrelated trace.
+        $hasParentSpanId = ! empty($options['parent_span_id']);
+        if ($hasParentSpanId && $parent === null && $this->traceId === null) {
+            throw new \InvalidArgumentException(
+                "options['parent_span_id'] requires either options['trace_id'], a prior setTraceId() call, or an open parent on the stack — otherwise the continuation span would point at a parent in a different trace."
+            );
+        }
+
         if ($parent !== null) {
             $span->trace_id = $parent->trace_id;
             $span->parent_span_id = $parent->span_id;
@@ -119,13 +133,13 @@ class FlowTracker
             $span->trace_id = $this->traceId ??= $this->newTraceId();
         }
 
-        // An explicit parent_id attaches the span to that node (database driver).
-        if (! empty($options['parent_id'])) {
-            $span->parent_id = $options['parent_id'];
+        if ($hasParentSpanId) {
+            $span->parent_span_id = (string) $options['parent_span_id'];
         }
 
-        // The driver decides how/whether to persist the span and place it in the tree.
-        $this->driver->opening($span, $parent);
+        // The driver decides how/whether to persist the span. Parent linkage is on
+        // $span->parent_span_id, which every reader walks anyway.
+        $this->driver->opening($span);
 
         $this->stack[] = ['span' => $span, 'start' => $start];
 
