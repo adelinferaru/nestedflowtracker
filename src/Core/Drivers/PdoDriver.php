@@ -41,22 +41,9 @@ class PdoDriver implements SpanDriver
 
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        $this->insertStmt->execute([
-            'trace_id' => $span->trace_id,
-            'span_id' => $span->span_id,
-            'parent_span_id' => $span->parent_span_id,
-            'name' => $span->name,
-            'component' => $span->component,
-            'user_id' => $span->user_id,
-            'status' => $span->status->value,
-            'message' => $span->message,
-            'duration' => $span->duration,
-            'started_at' => $span->started_at,
-            'context' => $span->context !== null ? json_encode($span->context) : null,
-            'result' => $span->result !== null ? json_encode($span->result) : null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $this->insertStmt->execute(
+            $span->toRow() + ['created_at' => $now, 'updated_at' => $now]
+        );
     }
 
     public function closing(Span $span): void
@@ -76,15 +63,12 @@ class PdoDriver implements SpanDriver
             );
         }
 
-        $this->updateStmt->execute([
-            'status' => $span->status->value,
-            'message' => $span->message,
-            'duration' => $span->duration,
-            'context' => $span->context !== null ? json_encode($span->context) : null,
-            'result' => $span->result !== null ? json_encode($span->result) : null,
-            'updated_at' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
-            'span_id' => $span->span_id,
-        ]);
+        $this->updateStmt->execute(
+            $span->toRowMutable() + [
+                'updated_at' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+                'span_id' => $span->span_id,
+            ]
+        );
     }
 
     public function flush(): void

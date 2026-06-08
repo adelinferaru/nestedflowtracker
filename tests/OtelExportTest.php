@@ -78,19 +78,18 @@ class OtelExportTest extends TestCase
         );
     }
 
-    public function test_spans_attached_via_explicit_parent_id_do_not_fire_a_duplicate_export(): void
+    public function test_spans_attached_via_explicit_parent_span_id_do_not_fire_a_duplicate_export(): void
     {
         // Open a real root and close it — one legitimate export.
         Flow::span('checkout', fn () => null);
         $this->assertCount(1, $this->http->sent);
 
-        // Now open a continuation span tied to an existing row via the
-        // documented options['parent_id'] API. It must NOT fire a second
-        // ExportTrace for the trace_id — the listener treats it as a
-        // continuation, not a fresh trace.
+        // Now open a continuation span tied to that flow via options['parent_span_id'].
+        // It must NOT fire a second ExportTrace for the trace_id — the listener
+        // treats it as a continuation, not a fresh trace.
         $row = \AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan::query()->firstOrFail();
         Flow::flush(); // start a fresh tracker state for the continuation
-        Flow::start('continuation', ['parent_id' => $row->id]);
+        Flow::start('continuation', ['parent_span_id' => $row->span_id]);
         Flow::end();
 
         $this->assertCount(1, $this->http->sent);

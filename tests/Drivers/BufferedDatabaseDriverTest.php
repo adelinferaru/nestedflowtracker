@@ -56,7 +56,5 @@ class BufferedDatabaseDriverTest extends TestCase
 
         $this->assertSame('checkout', $root->name);
         $this->assertSame($root->span_id, $child->parent_span_id);
-        // The buffered driver does not use the nested set.
-        $this->assertNull($child->parent_id);
     }
 }

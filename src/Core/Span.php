@@ -45,13 +45,46 @@ class Span
     public ?array $result = null;
 
     /**
-     * Eloquent-only opaque metadata: the integer FK of an existing flow_spans row
-     * to attach this span under (see {@see \AdelinFeraru\NestedFlowTracker\Laravel\Drivers\EloquentDatabaseDriver}).
-     * Only the Eloquent driver reads it; every other driver ignores it. The canonical,
-     * framework-agnostic parent linkage is `parent_span_id` (16-hex).
+     * Insert-ready row mapping (status as string value, context/result as JSON
+     * strings, no timestamp columns). Used by every persistence driver as the
+     * single source of truth for the flow_spans column shape and for the
+     * `status`/`context`/`result` serialization.
      *
-     * This field is the one altitude wart in 3.0 — it should move off the Core POPO
-     * into a driver-options bag in a follow-up (see ROADMAP).
+     * @return array<string, mixed>
      */
-    public ?int $parent_id = null;
+    public function toRow(): array
+    {
+        return [
+            'trace_id' => $this->trace_id,
+            'span_id' => $this->span_id,
+            'parent_span_id' => $this->parent_span_id,
+            'name' => $this->name,
+            'component' => $this->component,
+            'user_id' => $this->user_id,
+            'status' => $this->status->value,
+            'message' => $this->message,
+            'duration' => $this->duration,
+            'started_at' => $this->started_at,
+            'context' => $this->context !== null ? json_encode($this->context) : null,
+            'result' => $this->result !== null ? json_encode($this->result) : null,
+        ];
+    }
+
+    /**
+     * Subset of {@see toRow()} containing only the fields that can change between
+     * opening() and closing() — what a driver writes to its `UPDATE … WHERE
+     * span_id = ?` on close.
+     *
+     * @return array<string, mixed>
+     */
+    public function toRowMutable(): array
+    {
+        return [
+            'status' => $this->status->value,
+            'message' => $this->message,
+            'duration' => $this->duration,
+            'context' => $this->context !== null ? json_encode($this->context) : null,
+            'result' => $this->result !== null ? json_encode($this->result) : null,
+        ];
+    }
 }

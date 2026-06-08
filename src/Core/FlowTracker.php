@@ -72,8 +72,8 @@ class FlowTracker
     /**
      * Open a span manually. Prefer span() unless you cannot wrap the work in a closure.
      *
-     * @param array<string, mixed> $options trace_id, root, parent_id, user_id, component,
-     *                                       message, context, result.
+     * @param array<string, mixed> $options trace_id, root, parent_span_id, user_id,
+     *                                       component, message, context, result.
      */
     public function start(string $name, array $options = []): ?Span
     {
@@ -119,9 +119,11 @@ class FlowTracker
             $span->trace_id = $this->traceId ??= $this->newTraceId();
         }
 
-        // An explicit parent_id attaches the span to that node (database driver).
-        if (! empty($options['parent_id'])) {
-            $span->parent_id = $options['parent_id'];
+        // An explicit parent_span_id attaches the span to a known parent — used to
+        // continue a flow whose root closed earlier (e.g. resumed work in a follow-up
+        // job). Overrides the stack-based parent lookup so it works on a fresh tracker.
+        if (! empty($options['parent_span_id'])) {
+            $span->parent_span_id = (string) $options['parent_span_id'];
         }
 
         // The driver decides how/whether to persist the span and place it in the tree.
