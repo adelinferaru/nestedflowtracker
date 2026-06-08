@@ -19,4 +19,12 @@ interface SpanDriver
      * A span has closed (duration and status are finalized).
      */
     public function closing(Span $span): void;
+
+    /**
+     * Reset per-flow state. Called by FlowTracker::flush() between requests / jobs
+     * so a worker that fails to close a flow root (exception above the tracker,
+     * SIGTERM mid-flow, etc.) doesn't leak per-flow buffers or model maps across
+     * subsequent flows on the same scoped instance.
+     */
+    public function flush(): void;
 }

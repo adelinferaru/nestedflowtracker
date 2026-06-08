@@ -17,4 +17,8 @@ class NullDriver implements SpanDriver
     public function closing(Span $span): void
     {
     }
+
+    public function flush(): void
+    {
+    }
 }

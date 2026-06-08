@@ -153,10 +153,18 @@ class FlowTracker
             $span->status = SpanStatus::Ok;
         }
 
-        foreach (['message', 'context', 'result', 'status'] as $key) {
+        foreach (['message', 'context', 'result'] as $key) {
             if (array_key_exists($key, $options)) {
                 $span->{$key} = $options[$key];
             }
+        }
+
+        // Accept either a SpanStatus enum or its string value so call sites that
+        // worked against the 2.x Eloquent cast (e.g. `Flow::end(['status' => 'failed'])`)
+        // keep working against the typed POPO.
+        if (array_key_exists('status', $options)) {
+            $status = $options['status'];
+            $span->status = $status instanceof SpanStatus ? $status : SpanStatus::from((string) $status);
         }
 
         $this->driver->closing($span);
@@ -232,6 +240,10 @@ class FlowTracker
         $this->stack = [];
         $this->traceId = null;
         $this->userId = null;
+        // Drop any per-flow buffers/maps held by the driver so leaked open spans
+        // (exception above the tracker, SIGTERM mid-flow) don't pin memory across
+        // subsequent flows on the same scoped instance.
+        $this->driver->flush();
     }
 
     private function newSpan(): Span

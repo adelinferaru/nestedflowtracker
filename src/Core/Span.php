@@ -45,9 +45,13 @@ class Span
     public ?array $result = null;
 
     /**
-     * Relational parent FK — used by the Eloquent database driver to attach this
-     * span to a known row id. Non-relational drivers ignore it; the canonical
-     * parent linkage is `parent_span_id`.
+     * Eloquent-only opaque metadata: the integer FK of an existing flow_spans row
+     * to attach this span under (see {@see \AdelinFeraru\NestedFlowTracker\Laravel\Drivers\EloquentDatabaseDriver}).
+     * Only the Eloquent driver reads it; every other driver ignores it. The canonical,
+     * framework-agnostic parent linkage is `parent_span_id` (16-hex).
+     *
+     * This field is the one altitude wart in 3.0 — it should move off the Core POPO
+     * into a driver-options bag in a follow-up (see ROADMAP).
      */
     public ?int $parent_id = null;
 }

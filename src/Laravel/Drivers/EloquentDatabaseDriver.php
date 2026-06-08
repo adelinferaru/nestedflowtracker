@@ -59,6 +59,15 @@ class EloquentDatabaseDriver implements SpanDriver
         }
     }
 
+    public function flush(): void
+    {
+        // Called by FlowTracker::flush() between flows: release any persisted-row
+        // references held for spans whose flow never closed cleanly. Without this
+        // hook, a leaked open root would pin every span's FlowSpan model in memory
+        // for the lifetime of the worker under Octane/Swoole/Roadrunner.
+        $this->byId = [];
+    }
+
     private function fillFromSpan(FlowSpan $eloquent, Span $span): void
     {
         $eloquent->trace_id = $span->trace_id;

@@ -21,8 +21,6 @@ use AdelinFeraru\NestedFlowTracker\Core\Events\SpanFinished;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Psr7\HttpFactory;
 use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Controllers\FlowApiController;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Middleware\Authorize;
@@ -60,21 +58,22 @@ class FlowServiceProvider extends ServiceProvider
             };
         });
 
-        // The Core OTLP exporter depends only on PSR-18/PSR-17. Default to Guzzle
-        // (already in our require set), but bind the interfaces independently so
-        // tests or downstream apps can substitute their own implementations.
-        $this->app->bindIf(ClientInterface::class, function ($app) {
-            return new GuzzleClient([
-                'timeout' => (int) $app['config']->get('flow.otel.timeout', 5),
-            ]);
-        });
-        $this->app->singletonIf(RequestFactoryInterface::class, HttpFactory::class);
-        $this->app->singletonIf(StreamFactoryInterface::class, HttpFactory::class);
-
+        // The Core OTLP exporter depends only on PSR-18/PSR-17. We default to Guzzle
+        // (already in our require set), but build the client + factories inside this
+        // binding closure rather than registering them against the public PSR
+        // interfaces — that way `flow.otel.timeout` is always honored, and host
+        // apps that bind their own ClientInterface for unrelated features stay
+        // untouched. Tests substitute the client by binding ClientInterface to a
+        // fake; we honor that override when present.
         $this->app->bind(OtelExporter::class, function ($app) {
             $config = $app['config'];
             /** @var array<string, string> $headers */
             $headers = $config->get('flow.otel.headers') ?: [];
+
+            $factory = new HttpFactory();
+            $client = $app->bound(ClientInterface::class)
+                ? $app->make(ClientInterface::class)
+                : new GuzzleClient(['timeout' => (int) $config->get('flow.otel.timeout', 5)]);
 
             return new OtelExporter(
                 new OtelExporterConfig(
@@ -82,9 +81,9 @@ class FlowServiceProvider extends ServiceProvider
                     headers: $headers,
                     serviceName: (string) $config->get('flow.component', 'app'),
                 ),
-                $app->make(ClientInterface::class),
-                $app->make(RequestFactoryInterface::class),
-                $app->make(StreamFactoryInterface::class),
+                $client,
+                $factory,
+                $factory,
             );
         });
 
@@ -273,8 +272,10 @@ class FlowServiceProvider extends ServiceProvider
         $queue = $this->app['config']->get('flow.otel.queue');
 
         $events->listen(SpanFinished::class, function (SpanFinished $event) use ($queue): void {
-            // A root span closing means the whole flow is complete.
-            if ($event->span->parent_span_id !== null) {
+            // A root span closing means the whole flow is complete. A caller-provided
+            // `options['parent_id']` means the span is a continuation attached to an
+            // existing row, so skip it too — it's not a fresh trace.
+            if ($event->span->parent_span_id !== null || $event->span->parent_id !== null) {
                 return;
             }
 

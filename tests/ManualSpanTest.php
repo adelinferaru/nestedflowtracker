@@ -66,4 +66,22 @@ class ManualSpanTest extends TestCase
         Flow::end();
         $this->assertNull(Flow::currentSpan());
     }
+
+    public function test_end_accepts_a_string_status_for_2x_compatibility(): void
+    {
+        Flow::start('task');
+        Flow::end(['status' => 'failed']);
+
+        $span = FlowSpan::query()->firstOrFail();
+        $this->assertSame(SpanStatus::Failed, $span->status);
+    }
+
+    public function test_end_accepts_a_span_status_enum(): void
+    {
+        Flow::start('task');
+        Flow::end(['status' => SpanStatus::Failed]);
+
+        $span = FlowSpan::query()->firstOrFail();
+        $this->assertSame(SpanStatus::Failed, $span->status);
+    }
 }

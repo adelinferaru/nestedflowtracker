@@ -34,7 +34,7 @@ class OtelExporter
         }
 
         $payload = (string) json_encode($this->toOtlp($spans));
-        $url = rtrim($this->config->endpoint, '/') . '/v1/traces';
+        $url = $this->tracesUrl($this->config->endpoint);
 
         $request = $this->requestFactory->createRequest('POST', $url)
             ->withHeader('Content-Type', 'application/json')
@@ -45,6 +45,23 @@ class OtelExporter
         }
 
         $this->client->sendRequest($request);
+    }
+
+    /**
+     * Resolve the `/v1/traces` URL from the configured endpoint. Accepts either a
+     * base URL (`https://collector:4318`) or the full traces URL
+     * (`https://collector:4318/v1/traces`) — a common copy/paste from the OTel
+     * docs that would otherwise produce `…/v1/traces/v1/traces` and 404.
+     */
+    private function tracesUrl(string $endpoint): string
+    {
+        $endpoint = rtrim($endpoint, '/');
+
+        if (str_ends_with(strtolower($endpoint), '/v1/traces')) {
+            return $endpoint;
+        }
+
+        return $endpoint . '/v1/traces';
     }
 
     /**

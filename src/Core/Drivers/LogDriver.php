@@ -37,4 +37,8 @@ class LogDriver implements SpanDriver
             'result' => $span->result,
         ]);
     }
+
+    public function flush(): void
+    {
+    }
 }

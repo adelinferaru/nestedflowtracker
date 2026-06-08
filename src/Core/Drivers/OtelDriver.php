@@ -34,4 +34,10 @@ class OtelDriver implements SpanDriver
             $this->buffer = [];
         }
     }
+
+    public function flush(): void
+    {
+        // Drop the buffer without exporting — the surrounding flow is being abandoned.
+        $this->buffer = [];
+    }
 }

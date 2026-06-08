@@ -30,11 +30,17 @@ class EloquentBufferedDriver implements SpanDriver
 
         // A root span (no parent) closing means the whole flow is complete.
         if ($span->parent_span_id === null) {
-            $this->flush();
+            $this->writeBuffer();
         }
     }
 
-    private function flush(): void
+    public function flush(): void
+    {
+        // Drop the buffer without writing — the surrounding flow is being abandoned.
+        $this->buffer = [];
+    }
+
+    private function writeBuffer(): void
     {
         if ($this->buffer === []) {
             return;
