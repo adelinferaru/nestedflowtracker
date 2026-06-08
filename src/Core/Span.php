@@ -45,6 +45,23 @@ class Span
     public ?array $result = null;
 
     /**
+     * Columns produced by {@see toRow()}, in the order toRow() returns them.
+     * Drivers that need a positional column list (e.g. BufferedPdoDriver's
+     * multi-row INSERT) read this constant to stay in lockstep with toRow().
+     */
+    public const COLUMNS = [
+        'trace_id', 'span_id', 'parent_span_id', 'name', 'component', 'user_id',
+        'status', 'message', 'duration', 'started_at', 'context', 'result',
+    ];
+
+    /**
+     * Columns produced by {@see toRowMutable()} — the subset of {@see COLUMNS}
+     * that can change between opening() and closing(). What drivers write in
+     * `UPDATE … WHERE span_id = ?` on close.
+     */
+    public const MUTABLE_COLUMNS = ['status', 'message', 'duration', 'context', 'result'];
+
+    /**
      * Insert-ready row mapping (status as string value, context/result as JSON
      * strings, no timestamp columns). Used by every persistence driver as the
      * single source of truth for the flow_spans column shape and for the
@@ -71,20 +88,13 @@ class Span
     }
 
     /**
-     * Subset of {@see toRow()} containing only the fields that can change between
-     * opening() and closing() — what a driver writes to its `UPDATE … WHERE
-     * span_id = ?` on close.
+     * Subset of {@see toRow()} keyed by {@see MUTABLE_COLUMNS} — derived from
+     * toRow() so the serialization of context/result stays in lockstep.
      *
      * @return array<string, mixed>
      */
     public function toRowMutable(): array
     {
-        return [
-            'status' => $this->status->value,
-            'message' => $this->message,
-            'duration' => $this->duration,
-            'context' => $this->context !== null ? json_encode($this->context) : null,
-            'result' => $this->result !== null ? json_encode($this->result) : null,
-        ];
+        return array_intersect_key($this->toRow(), array_flip(self::MUTABLE_COLUMNS));
     }
 }

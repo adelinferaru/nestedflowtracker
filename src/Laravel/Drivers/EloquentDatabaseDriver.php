@@ -17,7 +17,7 @@ use DateTimeImmutable;
  */
 class EloquentDatabaseDriver implements SpanDriver
 {
-    public function opening(Span $span, ?Span $parent): void
+    public function opening(Span $span): void
     {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 

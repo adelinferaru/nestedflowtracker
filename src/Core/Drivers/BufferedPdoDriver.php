@@ -32,7 +32,7 @@ class BufferedPdoDriver implements SpanDriver
     ) {
     }
 
-    public function opening(Span $span, ?Span $parent): void
+    public function opening(Span $span): void
     {
     }
 
@@ -70,7 +70,7 @@ class BufferedPdoDriver implements SpanDriver
     private function writeBatch(array $batch): void
     {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
-        $columns = array_merge(array_keys($batch[0]->toRow()), ['created_at', 'updated_at']);
+        $columns = array_merge(Span::COLUMNS, ['created_at', 'updated_at']);
 
         $rowPlaceholders = '(' . str_repeat('?, ', count($columns) - 1) . '?)';
         $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES "

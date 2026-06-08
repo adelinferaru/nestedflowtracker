@@ -11,9 +11,11 @@ use AdelinFeraru\NestedFlowTracker\Core\Span;
 interface SpanDriver
 {
     /**
-     * A span has opened. $parent is the enclosing open span, if any.
+     * A span has opened. Parent linkage is on `$span->parent_span_id` — every reader
+     * in the package walks the tree via that column, so the driver doesn't need a
+     * separate parent reference.
      */
-    public function opening(Span $span, ?Span $parent): void;
+    public function opening(Span $span): void;
 
     /**
      * A span has closed (duration and status are finalized).

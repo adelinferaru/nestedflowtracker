@@ -26,7 +26,7 @@ class PdoDriver implements SpanDriver
     ) {
     }
 
-    public function opening(Span $span, ?Span $parent): void
+    public function opening(Span $span): void
     {
         if ($this->insertStmt === null) {
             $this->insertStmt = $this->pdo->prepare(

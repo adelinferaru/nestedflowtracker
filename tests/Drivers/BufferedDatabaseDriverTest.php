@@ -57,4 +57,17 @@ class BufferedDatabaseDriverTest extends TestCase
         $this->assertSame('checkout', $root->name);
         $this->assertSame($root->span_id, $child->parent_span_id);
     }
+
+    public function test_large_flow_chunks_into_batches_under_sqlite_param_limit(): void
+    {
+        // 200 spans * 14 columns = 2800 placeholders — well past SQLite's
+        // default 999-variable cap. The driver must chunk so this still inserts.
+        Flow::span('root', function () {
+            for ($i = 0; $i < 200; $i++) {
+                Flow::span("child-{$i}", fn () => null);
+            }
+        });
+
+        $this->assertSame(201, FlowSpan::query()->count());
+    }
 }

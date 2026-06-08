@@ -78,20 +78,41 @@ class OtelExportTest extends TestCase
         );
     }
 
-    public function test_spans_attached_via_explicit_parent_span_id_do_not_fire_a_duplicate_export(): void
+    public function test_spans_attached_via_explicit_parent_span_id_continue_the_original_trace(): void
     {
         // Open a real root and close it — one legitimate export.
         Flow::span('checkout', fn () => null);
         $this->assertCount(1, $this->http->sent);
 
-        // Now open a continuation span tied to that flow via options['parent_span_id'].
-        // It must NOT fire a second ExportTrace for the trace_id — the listener
-        // treats it as a continuation, not a fresh trace.
+        // Open a continuation span tied to that flow. The caller must pair
+        // options['parent_span_id'] with options['trace_id'] (or a prior
+        // setTraceId()) so the continuation lives on the original trace.
         $row = \AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan::query()->firstOrFail();
-        Flow::flush(); // start a fresh tracker state for the continuation
-        Flow::start('continuation', ['parent_span_id' => $row->span_id]);
+        Flow::flush(); // simulate a fresh tracker (e.g. a follow-up job)
+        Flow::start('continuation', [
+            'trace_id' => $row->trace_id,
+            'parent_span_id' => $row->span_id,
+        ]);
         Flow::end();
 
+        // No second ExportTrace fires — the continuation isn't a fresh root.
         $this->assertCount(1, $this->http->sent);
+
+        // And the continuation is wired to the original trace + parent (the
+        // whole reason for the parent_span_id option).
+        $continuation = \AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan::query()
+            ->where('name', 'continuation')
+            ->firstOrFail();
+        $this->assertSame($row->trace_id, $continuation->trace_id);
+        $this->assertSame($row->span_id, $continuation->parent_span_id);
+    }
+
+    public function test_parent_span_id_without_a_trace_anchor_throws(): void
+    {
+        Flow::flush();
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        Flow::start('continuation', ['parent_span_id' => str_repeat('a', 16)]);
     }
 }
