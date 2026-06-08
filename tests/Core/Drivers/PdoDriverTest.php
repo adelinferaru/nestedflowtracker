@@ -2,12 +2,12 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests\Core\Drivers;
 
-use AdelinFeraru\NestedFlowTracker\Bridge\PsrEventDispatcher;
+use AdelinFeraru\NestedFlowTracker\Laravel\Bridge\PsrEventDispatcher;
 use AdelinFeraru\NestedFlowTracker\Core\Drivers\PdoDriver;
 use AdelinFeraru\NestedFlowTracker\Core\Drivers\PdoSchema;
 use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
-use AdelinFeraru\NestedFlowTracker\FlowTracker;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Core\FlowTracker;
 use Illuminate\Events\Dispatcher;
 use PDO;
 use PHPUnit\Framework\TestCase;

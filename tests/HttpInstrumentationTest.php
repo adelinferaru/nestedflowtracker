@@ -2,9 +2,9 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 
 class HttpInstrumentationTest extends TestCase
 {

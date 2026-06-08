@@ -27,7 +27,7 @@
             "AdelinFeraru\\NestedFlowTracker\\": "src/"
         },
         "files": [
-            "src/helpers.php"
+            "src/Laravel/helpers.php"
         ]
     },
     "autoload-dev": {
@@ -45,10 +45,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "AdelinFeraru\\NestedFlowTracker\\FlowServiceProvider"
+                "AdelinFeraru\\NestedFlowTracker\\Laravel\\FlowServiceProvider"
             ],
             "aliases": {
-                "Flow": "AdelinFeraru\\NestedFlowTracker\\Facades\\Flow"
+                "Flow": "AdelinFeraru\\NestedFlowTracker\\Laravel\\Facades\\Flow"
             }
         }
     }

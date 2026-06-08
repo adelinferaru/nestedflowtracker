@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
 use AdelinFeraru\NestedFlowTracker\Tests\Support\RecordingHttpClient;
 use Psr\Http\Client\ClientInterface;
 use RuntimeException;

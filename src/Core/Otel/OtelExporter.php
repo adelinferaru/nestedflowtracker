@@ -3,7 +3,7 @@
 namespace AdelinFeraru\NestedFlowTracker\Core\Otel;
 
 use AdelinFeraru\NestedFlowTracker\Core\Span;
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;

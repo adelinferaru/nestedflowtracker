@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Core;
 
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
 
 /**
  * A single timed span — the framework-agnostic shape that the tracker, the drivers,

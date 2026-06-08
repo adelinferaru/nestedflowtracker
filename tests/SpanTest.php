@@ -3,9 +3,9 @@
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
 use AdelinFeraru\NestedFlowTracker\Core\Span;
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 use RuntimeException;
 
 class SpanTest extends TestCase

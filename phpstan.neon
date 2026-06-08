@@ -6,7 +6,5 @@ parameters:
     paths:
         - src
     excludePaths:
-        # Config files are declarative data; env() is legitimate inside them.
-        - src/config/*
-    # tmpDir keeps PHPStan's cache out of the project root.
+        - src/Laravel/config/*
     tmpDir: build/phpstan

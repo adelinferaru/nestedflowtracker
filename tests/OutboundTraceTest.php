@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 

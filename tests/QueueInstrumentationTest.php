@@ -2,8 +2,8 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Enums\SpanStatus;
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 use AdelinFeraru\NestedFlowTracker\Tests\Fixtures\SampleJob;
 use RuntimeException;
 

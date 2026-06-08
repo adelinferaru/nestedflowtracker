@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Models\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
 
 class InboundTraceTest extends TestCase
 {

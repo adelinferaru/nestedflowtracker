@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
 use Illuminate\Support\Facades\Http;
 
 class OtelDisabledTest extends TestCase

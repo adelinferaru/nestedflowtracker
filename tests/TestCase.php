@@ -2,7 +2,7 @@
 
 namespace AdelinFeraru\NestedFlowTracker\Tests;
 
-use AdelinFeraru\NestedFlowTracker\FlowServiceProvider;
+use AdelinFeraru\NestedFlowTracker\Laravel\FlowServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
