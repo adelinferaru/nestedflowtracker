@@ -1,6 +1,6 @@
 {
     "name": "adelinferaru/nestedflowtracker",
-    "description": "Laravel package that helps tracking nested execution flows.",
+    "description": "Trace nested application flows as timed trees. Framework-agnostic core (PSR-3/14/17/18) with first-class Laravel integration.",
     "license": "MIT",
     "authors": [
         {
@@ -10,14 +10,19 @@
         }
     ],
     "homepage": "https://github.com/adelinferaru/nestedflowtracker",
-    "keywords": ["Laravel", "NestedFlowTracker"],
+    "keywords": ["tracing", "spans", "flow", "laravel", "opentelemetry", "psr-18"],
     "require": {
         "php": "^8.1",
+        "guzzlehttp/guzzle": "^7.0",
+        "kalnoy/nestedset": "^6.0.6",
         "laravel/framework": "^10.0|^11.0|^12.0",
-        "kalnoy/nestedset": "^6.0.6"
+        "psr/event-dispatcher": "^1.0",
+        "psr/http-client": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-message": "^1.0|^2.0",
+        "psr/log": "^1.0|^2.0|^3.0"
     },
     "require-dev": {
-        "guzzlehttp/guzzle": "^7.0",
         "larastan/larastan": "^2.9|^3.0",
         "orchestra/testbench": "^8.0|^9.0|^10.0",
         "phpunit/phpunit": "^10.5|^11.0"
