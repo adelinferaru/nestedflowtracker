@@ -3,17 +3,18 @@
 [![Latest Version on Packagist][ico-version]][link-packagist]
 [![Total Downloads][ico-downloads]][link-downloads]
 
-The **zero-infra flow tracer for Laravel**. Wrap any block of code in a *span*; it gets timed and
-stored as a tree in your own database, with nested sub-operations recorded as children. A single
-flow can span multiple applications via a shared `trace_id`.
+A **zero-infra flow tracer**. Wrap any block of code in a *span*; it gets timed and stored as a
+tree in your own database, with nested sub-operations recorded as children. A single flow can span
+multiple applications via a shared `trace_id`.
 
 No collectors, no external backend — unlike OpenTelemetry you need no infrastructure, and unlike
 Telescope it traces *your* business flows (not framework internals) and works in production.
 
 ![A checkout flow rendered as a timed tree in the built-in viewer](art/show.png)
 
-**Requires** PHP 8.1+ and Laravel 10, 11, or 12. An OpenTelemetry exporter and pluggable storage
-drivers are on the [roadmap](ROADMAP.md).
+**Requires** PHP 8.1+. As of **3.0** the package is split into a framework-agnostic **Core** (only
+PSR-3/14/17/18 dependencies) and a **Laravel** adapter (auto-discovered on Laravel 10, 11, or 12).
+Use either side independently.
 
 ## Installation
 
@@ -34,13 +35,24 @@ Optionally publish the config:
 php artisan vendor:publish --tag="flow-config"
 ```
 
+### Upgrading from 2.x
+
+3.0 is namespace-only: behaviour, config keys, env vars, the `flow_spans` schema and the artisan
+commands are all unchanged. `composer update` plus a search-and-replace on imports usually does it.
+The full namespace table lives in [`changelog.md`](changelog.md). The most common moves:
+
+- `AdelinFeraru\NestedFlowTracker\Facades\Flow` → `…\Laravel\Facades\Flow`
+- `AdelinFeraru\NestedFlowTracker\Models\FlowSpan` → `…\Laravel\Eloquent\FlowSpan`
+- `AdelinFeraru\NestedFlowTracker\Events\SpanFinished` → `…\Core\Events\SpanFinished`
+- `AdelinFeraru\NestedFlowTracker\TraceContext` → `…\Core\TraceContext`
+
 ## Usage
 
 The recommended API is `span()`: it opens a span, runs your callback, and closes it automatically —
 even if the callback throws. It returns the callback's value untouched.
 
 ```php
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
 
 $account = Flow::span('register user', function () use ($data) {
     $account = Flow::span('create account', fn () => Account::create($data));
@@ -64,8 +76,38 @@ You can also use the `flow()` helper or resolve the service from the container:
 ```php
 flow()->span('charge card', fn () => $gateway->charge($card));
 
-app(\AdelinFeraru\NestedFlowTracker\FlowTracker::class)->span(/* ... */);
+app(\AdelinFeraru\NestedFlowTracker\Core\FlowTracker::class)->span(/* ... */);
 ```
+
+### Without Laravel
+
+Construct `Core\FlowTracker` yourself and drive it directly. Any PSR-3 logger / PSR-14 dispatcher
+work; the package ships PDO-backed storage drivers, a PSR-18 OTLP exporter, and a `null` driver.
+
+```php
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\PdoDriver;
+use AdelinFeraru\NestedFlowTracker\Core\Drivers\PdoSchema;
+use AdelinFeraru\NestedFlowTracker\Core\FlowConfig;
+use AdelinFeraru\NestedFlowTracker\Core\FlowTracker;
+
+$pdo = new PDO('sqlite:flows.sqlite');
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+PdoSchema::create($pdo);                                    // sqlite / mysql / pgsql
+
+$flow = new FlowTracker(
+    new FlowConfig(enabled: true, component: 'orders'),
+    $events,                                                // any PSR-14 EventDispatcherInterface
+    new PdoDriver($pdo),                                    // or BufferedPdoDriver for one bulk insert per flow
+);
+
+$flow->span('checkout', function ($span) use ($flow) {
+    $flow->span('charge card', fn () => /* ... */);
+});
+```
+
+Other Core drivers: `LogDriver(LoggerInterface)` (PSR-3), `NullDriver`, and `OtelDriver` (wraps the
+PSR-18/17 `Core\Otel\OtelExporter`). All implement `Core\Drivers\SpanDriver` — bring your own if
+you want a different backend.
 
 ### Enriching a span
 
@@ -106,7 +148,7 @@ Http::withFlowTrace()->post('https://orders.internal/checkout', $payload);
 request's root span continues the upstream trace. Doing it manually:
 
 ```php
-use AdelinFeraru\NestedFlowTracker\TraceContext;
+use AdelinFeraru\NestedFlowTracker\Core\TraceContext;
 
 if ($ctx = TraceContext::parse($request->header('traceparent'))) {
     Flow::setTraceId($ctx->traceId);
@@ -126,7 +168,7 @@ php artisan flow:prune --days=30 # delete flow spans older than N days
 (e.g. log slow spans):
 
 ```php
-use AdelinFeraru\NestedFlowTracker\Events\SpanFinished;
+use AdelinFeraru\NestedFlowTracker\Core\Events\SpanFinished;
 
 Event::listen(function (SpanFinished $event) {
     if ($event->span->duration > 1.0) {

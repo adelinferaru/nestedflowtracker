@@ -3,6 +3,52 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [3.0.0] - 2026-06-08
+
+### Changed (breaking — namespace reorganization)
+The package is split internally into a framework-agnostic **Core** and a **Laravel** adapter so
+users without Laravel can drive `FlowTracker` directly. Public API is unchanged in behaviour;
+namespaces and a few class names moved.
+
+| 2.x | 3.0 |
+| --- | --- |
+| `AdelinFeraru\NestedFlowTracker\FlowTracker` | `…\Core\FlowTracker` |
+| `…\TraceContext` | `…\Core\TraceContext` |
+| `…\Enums\SpanStatus` | `…\Core\Enums\SpanStatus` |
+| `…\Events\SpanStarted` / `SpanFinished` | `…\Core\Events\SpanStarted` / `SpanFinished` |
+| `…\Drivers\SpanDriver` / `NullDriver` / `LogDriver` / `OtelDriver` | `…\Core\Drivers\*` |
+| `…\Otel\OtelExporter` | `…\Core\Otel\OtelExporter` (now PSR-18/PSR-17) |
+| `…\FlowServiceProvider` | `…\Laravel\FlowServiceProvider` |
+| `…\Facades\Flow` | `…\Laravel\Facades\Flow` |
+| `…\Models\FlowSpan` | `…\Laravel\Eloquent\FlowSpan` |
+| `…\Drivers\DatabaseDriver` | `…\Laravel\Drivers\EloquentDatabaseDriver` |
+| `…\Drivers\BufferedDatabaseDriver` | `…\Laravel\Drivers\EloquentBufferedDriver` |
+| `…\Http\*` | `…\Laravel\Http\*` |
+| `…\Console\*` | `…\Laravel\Console\*` |
+| `…\Otel\ExportTrace` | `…\Laravel\Otel\ExportTrace` |
+
+`Flow::span()`, `flow()`, the artisan commands, the viewer routes, the `flow.*` config keys and
+`FLOW_*` env vars, and the `flow_spans` schema are all unchanged — most users only need to update
+`use` statements and pull `composer update` (composer auto-discovery picks up the new provider).
+
+### Added
+- **`Core\Span`** — plain DTO that `FlowTracker`, the drivers, the events and the OTLP exporter
+  operate on. Replaces the Eloquent `FlowSpan` for in-memory use; persistence is now an Eloquent
+  detail of the Laravel adapter.
+- **`Core\FlowConfig`** — readonly DTO that `FlowTracker` takes instead of Laravel's config
+  repository. Non-Laravel callers construct one directly.
+- **PSR-14 event boundary** — `FlowTracker` now depends on `Psr\EventDispatcher\EventDispatcherInterface`.
+  The Laravel adapter wraps the framework's dispatcher in `Laravel\Bridge\PsrEventDispatcher`.
+- **`Core\Drivers\PdoDriver` + `BufferedPdoDriver`** — framework-agnostic DB drivers backed by
+  plain PDO (sqlite/mysql/pgsql), with `Core\Drivers\PdoSchema::create()` to spin up the lean
+  `flow_spans` table.
+- **PSR-3 `Core\Drivers\LogDriver`** — takes any `LoggerInterface`. The Laravel provider passes
+  `Log::channel(...)` automatically when `flow.driver=log`.
+- **PSR-18 / PSR-17 `Core\Otel\OtelExporter`** — accepts a `ClientInterface` + the two factory
+  interfaces. The Laravel adapter binds Guzzle by default; downstream apps can override.
+- Top-level PSR contracts (`psr/log`, `psr/event-dispatcher`, `psr/http-client`, `psr/http-factory`,
+  `psr/http-message`) and `guzzlehttp/guzzle` are now production deps.
+
 ## [2.5.1] - 2026-05-27
 
 ### Fixed
