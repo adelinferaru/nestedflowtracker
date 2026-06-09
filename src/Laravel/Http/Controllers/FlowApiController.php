@@ -27,7 +27,11 @@ class FlowApiController
             $query->where('status', $request->input('status'));
         }
 
-        $flows = $query->paginate((int) $request->integer('per_page', 25))->withQueryString();
+        // Clamped: a negative per_page would silently drop the LIMIT clause and
+        // load the whole table.
+        $perPage = min(100, max(1, $request->integer('per_page', 25)));
+
+        $flows = $query->paginate($perPage)->withQueryString();
 
         return response()->json([
             'data' => array_map(fn (FlowSpan $span) => $this->summary($span), $flows->items()),

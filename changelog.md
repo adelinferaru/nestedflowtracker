@@ -3,6 +3,42 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Fixed
+- **Buffered drivers no longer drop continuation flows.** `EloquentBufferedDriver`,
+  `BufferedPdoDriver`, and `OtelDriver` now detect flow completion by the open-span count
+  returning to zero instead of "the closed span has no parent". A flow continued via
+  `options['parent_span_id']` — whose outermost span has a non-null parent — was previously
+  buffered and then silently discarded. Buffers are also detached before writing/exporting,
+  so a failed insert/POST can no longer replay stale spans into the next flow.
+- **`flow.auto.queue` no longer wipes the caller's flow for sync-dispatched jobs.** The sync
+  queue driver fires the same `JobProcessing`/`JobProcessed` events as a worker, and the
+  listener used to `flush()` unconditionally — orphaning the surrounding request/job root
+  span (stuck `running` forever, or the whole flow lost in buffered mode). Jobs dispatched
+  inside an open flow now nest under the current span; the closing listeners close the job's
+  own span (cleaning up spans the job leaked open) instead of blindly popping the innermost.
+- **Viewer no longer recurses infinitely on pre-2.1 rows** with a NULL `span_id` (the null
+  children lookup landed on the roots group, hanging the root under itself).
+- **`Flow::end(['status' => …])` with an invalid value no longer half-closes the span** —
+  the status override is validated before the stack is touched, so the `ValueError` leaves
+  the span open and endable.
+- **`Span::toRow()` can no longer emit `false` for unencodable `context`/`result`** —
+  invalid UTF-8 is substituted and unencodable values degrade partially instead of failing
+  the whole row (PDO binds `false` as `''`, which MySQL JSON columns reject).
+- **`TraceContext::parse()` reads only the sampled bit** of the flags byte (`02`, the
+  level-2 random-trace-id flag, no longer parses as sampled). **`TraceContext::spanId()`**
+  passes 16-hex ids through and hashes non-numeric keys (uuid/ulid) instead of
+  `(int)`-casting them into the W3C-invalid all-zero id.
+- **The JSON API clamps `per_page` to 1–100** — a negative value previously dropped the
+  LIMIT clause entirely and loaded the whole table.
+- **The OTel export listener registers only for the `database` driver** (the export reads
+  flows back out of `flow_spans`; with `log`/`null`/`otel` it queued pointless jobs), and
+  re-checks `flow.otel.enabled` at fire time so `flow:benchmark` can disable it for its
+  rolled-back throwaway flows.
+- **Container-bound PSR-17 `RequestFactoryInterface`/`StreamFactoryInterface` are honored**
+  by the OTLP exporter binding, as documented (previously only `ClientInterface` was).
+
 ## [3.1.0] - 2026-06-08
 
 ### Added

@@ -56,9 +56,15 @@ class FlowViewerController
         abort_if($spans->isEmpty(), 404);
 
         // Build the tree from span ids and hang each node's children off it.
+        // Roots (null parent_span_id) group under the '' key, and a null span_id
+        // would *look up* that same '' key — handing a root itself as a child and
+        // recursing forever — so rows without a span_id (pre-2.1) get no children.
         $childrenByParent = $spans->groupBy('parent_span_id');
         foreach ($spans as $span) {
-            $span->setRelation('children', $childrenByParent->get($span->span_id) ?? collect());
+            $span->setRelation(
+                'children',
+                $span->span_id !== null ? ($childrenByParent->get($span->span_id) ?? collect()) : collect(),
+            );
         }
 
         $root = $spans->first();

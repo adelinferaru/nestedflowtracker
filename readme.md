@@ -312,7 +312,7 @@ will differ**, the `database` figure especially):
 
 The immediate `database` cost is dominated by the two writes per span. **Buffered mode**
 (`FLOW_BUFFER=true`) holds a whole flow in memory and bulk-inserts it in a single query when the
-root span closes — roughly **8× faster** here. The trade-off: spans are only persisted once the
+flow completes — roughly **8× faster** here. The trade-off: spans are only persisted once the
 flow completes (a crash mid-flow loses it), so it's off by default. `flow_spans` is indexed on
 `trace_id`, `span_id`, `component`, `status`, and `created_at`.
 

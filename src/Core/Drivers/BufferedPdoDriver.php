@@ -26,6 +26,14 @@ class BufferedPdoDriver implements SpanDriver
     /** @var list<Span> */
     private array $buffer = [];
 
+    /**
+     * Open spans not yet closed. The flow is complete when this returns to zero —
+     * checking the closed span's parent_span_id instead would never fire for a
+     * flow continued via options['parent_span_id'], whose outermost span has a
+     * non-null parent.
+     */
+    private int $depth = 0;
+
     public function __construct(
         private readonly PDO $pdo,
         private readonly string $table = 'flow_spans',
@@ -34,13 +42,15 @@ class BufferedPdoDriver implements SpanDriver
 
     public function opening(Span $span): void
     {
+        $this->depth++;
     }
 
     public function closing(Span $span): void
     {
         $this->buffer[] = $span;
 
-        if ($span->parent_span_id === null) {
+        if (--$this->depth <= 0) {
+            $this->depth = 0;
             $this->writeBuffer();
         }
     }
@@ -49,19 +59,19 @@ class BufferedPdoDriver implements SpanDriver
     {
         // Drop the buffer without writing — the surrounding flow is being abandoned.
         $this->buffer = [];
+        $this->depth = 0;
     }
 
     private function writeBuffer(): void
     {
-        if ($this->buffer === []) {
-            return;
-        }
+        // Detach before writing so a failed INSERT can't leave spans behind to be
+        // replayed (or partially duplicated) into the next flow's write.
+        $spans = $this->buffer;
+        $this->buffer = [];
 
-        foreach (array_chunk($this->buffer, self::BATCH_SIZE) as $batch) {
+        foreach (array_chunk($spans, self::BATCH_SIZE) as $batch) {
             $this->writeBatch($batch);
         }
-
-        $this->buffer = [];
     }
 
     /**

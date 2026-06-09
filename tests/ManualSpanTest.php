@@ -83,4 +83,21 @@ class ManualSpanTest extends TestCase
         $span = FlowSpan::query()->firstOrFail();
         $this->assertSame(SpanStatus::Failed, $span->status);
     }
+
+    public function test_invalid_status_override_throws_and_leaves_the_span_open(): void
+    {
+        Flow::start('task');
+
+        try {
+            Flow::end(['status' => 'bogus']);
+            $this->fail('Expected a ValueError for the unknown status.');
+        } catch (\ValueError) {
+            // expected
+        }
+
+        // The span was not half-closed: it is still open and can be ended normally.
+        $this->assertNotNull(Flow::currentSpan());
+        $closed = Flow::end();
+        $this->assertSame(SpanStatus::Ok, $closed?->status);
+    }
 }

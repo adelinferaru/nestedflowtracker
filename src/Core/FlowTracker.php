@@ -159,6 +159,16 @@ class FlowTracker
             return null;
         }
 
+        // Accept either a SpanStatus enum or its string value so call sites that
+        // worked against the 2.x Eloquent cast (e.g. `Flow::end(['status' => 'failed'])`)
+        // keep working against the typed POPO. Resolved before the stack is touched,
+        // so an invalid value throws while the span is still cleanly open.
+        $statusOverride = null;
+        if (array_key_exists('status', $options)) {
+            $status = $options['status'];
+            $statusOverride = $status instanceof SpanStatus ? $status : SpanStatus::from((string) $status);
+        }
+
         $entry = array_pop($this->stack);
         $span = $entry['span'];
         $span->duration = microtime(true) - $entry['start'];
@@ -173,12 +183,8 @@ class FlowTracker
             }
         }
 
-        // Accept either a SpanStatus enum or its string value so call sites that
-        // worked against the 2.x Eloquent cast (e.g. `Flow::end(['status' => 'failed'])`)
-        // keep working against the typed POPO.
-        if (array_key_exists('status', $options)) {
-            $status = $options['status'];
-            $span->status = $status instanceof SpanStatus ? $status : SpanStatus::from((string) $status);
+        if ($statusOverride !== null) {
+            $span->status = $statusOverride;
         }
 
         $this->driver->closing($span);

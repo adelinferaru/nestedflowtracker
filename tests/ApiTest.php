@@ -19,6 +19,20 @@ class ApiTest extends TestCase
         Gate::define('viewFlow', fn ($user = null) => true);
     }
 
+    public function test_per_page_is_clamped_to_a_sane_range(): void
+    {
+        Flow::span('checkout', fn () => null);
+
+        // A negative per_page would otherwise drop the LIMIT clause entirely.
+        $this->getJson('/flow/api/flows?per_page=-1')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 1);
+
+        $this->getJson('/flow/api/flows?per_page=5000')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 100);
+    }
+
     public function test_lists_flows_as_json(): void
     {
         Flow::span('checkout', fn () => null);

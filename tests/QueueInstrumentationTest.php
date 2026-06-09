@@ -4,6 +4,8 @@ namespace AdelinFeraru\NestedFlowTracker\Tests;
 
 use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Tests\Fixtures\LeakyJob;
 use AdelinFeraru\NestedFlowTracker\Tests\Fixtures\SampleJob;
 use RuntimeException;
 
@@ -48,5 +50,39 @@ class QueueInstrumentationTest extends TestCase
 
         $this->assertSame(2, FlowSpan::query()->count());
         $this->assertSame(2, FlowSpan::query()->distinct()->pluck('trace_id')->count());
+    }
+
+    public function test_sync_job_inside_an_open_flow_nests_under_it(): void
+    {
+        // The sync queue driver fires the same JobProcessing/JobProcessed events
+        // as a real worker — the listener must not flush (and wipe) the caller's
+        // open flow, it must nest the job under it.
+        Flow::start('outer');
+        SampleJob::dispatch();
+        $outer = Flow::end();
+
+        $this->assertNotNull($outer, 'the job listener must not wipe the outer flow');
+
+        $jobRow = FlowSpan::query()->where('name', 'like', '%SampleJob%')->firstOrFail();
+        $outerRow = FlowSpan::query()->where('name', 'outer')->firstOrFail();
+
+        $this->assertSame($outerRow->trace_id, $jobRow->trace_id);
+        $this->assertSame($outerRow->span_id, $jobRow->parent_span_id);
+        $this->assertSame(SpanStatus::Ok, $outerRow->status);
+    }
+
+    public function test_spans_leaked_open_by_a_job_are_closed_with_the_job(): void
+    {
+        LeakyJob::dispatch();
+
+        $jobRow = FlowSpan::query()->where('name', 'like', '%LeakyJob%')->firstOrFail();
+        $leaked = FlowSpan::query()->where('name', 'leaked')->firstOrFail();
+
+        // The listener closes the leaked child first, then the job's own span —
+        // not just whatever happens to be innermost.
+        $this->assertSame(SpanStatus::Ok, $jobRow->status);
+        $this->assertNotNull($jobRow->duration);
+        $this->assertSame($jobRow->span_id, $leaked->parent_span_id);
+        $this->assertNotNull($leaked->duration);
     }
 }

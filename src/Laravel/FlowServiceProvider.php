@@ -21,6 +21,8 @@ use AdelinFeraru\NestedFlowTracker\Core\Events\SpanFinished;
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Psr7\HttpFactory;
 use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Controllers\FlowApiController;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Controllers\FlowViewerController;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Middleware\Authorize;
@@ -82,8 +84,8 @@ class FlowServiceProvider extends ServiceProvider
                     serviceName: (string) $config->get('flow.component', 'app'),
                 ),
                 $client,
-                $factory,
-                $factory,
+                $app->bound(RequestFactoryInterface::class) ? $app->make(RequestFactoryInterface::class) : $factory,
+                $app->bound(StreamFactoryInterface::class) ? $app->make(StreamFactoryInterface::class) : $factory,
             );
         });
 
@@ -126,7 +128,13 @@ class FlowServiceProvider extends ServiceProvider
             $this->registerViewer();
         }
 
-        if ($config->get('flow.otel.enabled') && $config->get('flow.otel.endpoint')) {
+        // The export job reads the flow back out of flow_spans, so it only makes
+        // sense with the database driver — log/null/otel never write the table.
+        if (
+            $config->get('flow.otel.enabled')
+            && $config->get('flow.otel.endpoint')
+            && $config->get('flow.driver', 'database') === 'database'
+        ) {
             $this->registerOtelExport();
         }
 
@@ -228,36 +236,70 @@ class FlowServiceProvider extends ServiceProvider
         /** @var Dispatcher $events */
         $events = $this->app['events'];
 
-        $events->listen(JobProcessing::class, function (JobProcessing $event): void {
+        // The spans opened by JobProcessing, innermost job last. Tracked so the
+        // closing listeners end the job's own span (closing anything the job
+        // leaked open above it) rather than blindly popping the innermost span.
+        /** @var \SplStack<\AdelinFeraru\NestedFlowTracker\Core\Span|null> $jobSpans */
+        $jobSpans = new \SplStack();
+
+        $events->listen(JobProcessing::class, function (JobProcessing $event) use ($jobSpans): void {
             if ($event->job->resolveName() === ExportTrace::class) {
                 return; // Don't trace our own exporter.
             }
             $flow = $this->app->make(FlowTracker::class);
-            // Each job is its own flow, isolated from any previous job on this worker.
-            $flow->flush();
-            $flow->start('job: ' . $event->job->resolveName(), [
-                'root' => true,
+
+            // A job dispatched synchronously from inside an open flow (the sync
+            // driver fires these events too) nests under the caller's span —
+            // flushing here would wipe the outer request/job flow's state.
+            $nested = $flow->currentSpan() !== null;
+            if (! $nested) {
+                // Each top-level job is its own flow, isolated from any previous
+                // job on this worker.
+                $flow->flush();
+            }
+
+            $jobSpans->push($flow->start('job: ' . $event->job->resolveName(), [
+                'root' => ! $nested,
                 'context' => [
                     'connection' => $event->connectionName,
                     'queue' => $event->job->getQueue(),
                 ],
-            ]);
+            ]));
         });
 
-        $events->listen(JobProcessed::class, function (JobProcessed $event): void {
-            if ($event->job->resolveName() === ExportTrace::class) {
-                return;
-            }
-            $this->app->make(FlowTracker::class)->end();
-        });
+        $closeJobSpan = function (FlowTracker $flow, ?\Throwable $exception) use ($jobSpans): void {
+            $target = $jobSpans->isEmpty() ? null : $jobSpans->pop();
 
-        $events->listen(JobExceptionOccurred::class, function (JobExceptionOccurred $event): void {
-            if ($event->job->resolveName() === ExportTrace::class) {
+            // Already closed (the job code over-ended it) — don't touch spans
+            // that belong to an enclosing flow.
+            if ($target !== null && $target->duration !== null) {
                 return;
             }
-            $flow = $this->app->make(FlowTracker::class);
-            $flow->fail($event->exception);
+
+            // Close any spans the job left open, down to the job's own span.
+            while ($target !== null && $flow->currentSpan() !== null && $flow->currentSpan() !== $target) {
+                $flow->end();
+            }
+
+            if ($exception !== null) {
+                $flow->fail($exception);
+            }
+
             $flow->end();
+        };
+
+        $events->listen(JobProcessed::class, function (JobProcessed $event) use ($closeJobSpan): void {
+            if ($event->job->resolveName() === ExportTrace::class) {
+                return;
+            }
+            $closeJobSpan($this->app->make(FlowTracker::class), null);
+        });
+
+        $events->listen(JobExceptionOccurred::class, function (JobExceptionOccurred $event) use ($closeJobSpan): void {
+            if ($event->job->resolveName() === ExportTrace::class) {
+                return;
+            }
+            $closeJobSpan($this->app->make(FlowTracker::class), $event->exception);
         });
     }
 
@@ -269,15 +311,21 @@ class FlowServiceProvider extends ServiceProvider
         /** @var Dispatcher $events */
         $events = $this->app['events'];
 
-        $queue = $this->app['config']->get('flow.otel.queue');
-
-        $events->listen(SpanFinished::class, function (SpanFinished $event) use ($queue): void {
+        $events->listen(SpanFinished::class, function (SpanFinished $event): void {
             // A root span closing means the whole flow is complete.
             if ($event->span->parent_span_id !== null) {
                 return;
             }
 
+            // Re-checked at fire time so runtime toggles work (flow:benchmark
+            // turns the export off while it records throwaway flows).
+            $config = $this->app['config'];
+            if (! $config->get('flow.otel.enabled')) {
+                return;
+            }
+
             $job = new ExportTrace($event->span->trace_id);
+            $queue = $config->get('flow.otel.queue');
             if ($queue !== null) {
                 $job->onQueue((string) $queue);
             }

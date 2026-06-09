@@ -10,6 +10,19 @@ use RuntimeException;
 
 class SpanTest extends TestCase
 {
+    public function test_to_row_serializes_unencodable_context_instead_of_failing(): void
+    {
+        $span = new Span();
+        $span->context = ['raw' => "\xB1\x31", 'n' => NAN];
+
+        $row = $span->toRow();
+
+        // json_encode would return false here — which PDO binds as '' and a MySQL
+        // JSON column rejects. The row must carry valid JSON (or null) instead.
+        $this->assertIsString($row['context']);
+        $this->assertIsArray(json_decode($row['context'], true));
+    }
+
     public function test_span_returns_the_callback_value(): void
     {
         $value = Flow::span('compute', fn () => 21 * 2);
