@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NestedFlowTracker — zero-infra flow tracing for Laravel</title>
+<meta name="description" content="Wrap any block of Laravel code in a span. NestedFlowTracker times it and stores it as a tree in your own database. No collectors, no backend. Production-safe.">
+<!-- Open Graph / social preview -->
+<meta property="og:title" content="NestedFlowTracker — zero-infra flow tracing for Laravel">
+<meta property="og:description" content="See exactly where your Laravel business flows spend their time. Wrap a block, get a timed tree, stored in your own database.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://adelinferaru.github.io/nestedflowtracker/">
+<meta property="og:image" content="https://adelinferaru.github.io/nestedflowtracker/art/show.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --ink:#1d2733; --slate:#46586b; --mute:#6b7a8a;
+    --accent:#c1432a; --accent2:#2b6171; --green:#2f7d56;
+    --line:#e2e7ec; --light:#f5f7f9; --bg:#ffffff;
+    --code-bg:#1d2733; --code-ink:#e8edf2; --code-dim:#8aa0b2;
+    --maxw:1080px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* top bar */
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--ink);font-size:16px}
+  .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:3px 3px 0 0 var(--accent2)}
+  .nav a{color:var(--slate);font-size:14px;margin-left:22px;font-weight:500}
+  .nav a:hover{color:var(--accent)}
+  @media(max-width:640px){.nav{display:none}}
+
+  /* hero */
+  .hero{padding:78px 0 56px;background:
+    radial-gradient(900px 380px at 80% -10%, rgba(193,67,42,.07), transparent 60%),
+    radial-gradient(700px 360px at 0% 0%, rgba(43,97,113,.06), transparent 55%)}
+  .kicker{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:#fbeae6;padding:5px 11px;border-radius:999px;margin-bottom:20px}
+  h1{font-size:clamp(30px,5vw,50px);line-height:1.08;letter-spacing:-.02em;font-weight:800;max-width:16ch}
+  .sub{font-size:clamp(16px,2.1vw,20px);color:var(--slate);max-width:60ch;margin-top:20px}
+  .cta-row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:30px}
+  .install{display:inline-flex;align-items:center;gap:12px;background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:15px;padding:14px 18px;border-radius:10px;cursor:pointer;border:none;transition:transform .08s ease}
+  .install:hover{transform:translateY(-1px)}
+  .install .prompt{color:var(--accent)}
+  .install .copy{margin-left:6px;font-size:11px;color:var(--code-dim);font-family:var(--font);border:1px solid #33414f;border-radius:6px;padding:3px 8px}
+  .btn-ghost{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;color:var(--ink);padding:13px 20px;border:1.5px solid var(--line);border-radius:10px}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+  .meta-line{margin-top:22px;font-size:13.5px;color:var(--mute)}
+
+  /* viewer screenshot */
+  .viewer{margin-top:46px;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 24px 60px -28px rgba(29,39,51,.35)}
+  .viewer .chrome{display:flex;align-items:center;gap:7px;padding:11px 15px;background:var(--light);border-bottom:1px solid var(--line)}
+  .viewer .chrome i{width:11px;height:11px;border-radius:50%;display:inline-block;background:#d4dae0}
+  .viewer .chrome .url{margin-left:12px;font-family:var(--mono);font-size:12px;color:var(--mute)}
+  .viewer img{display:block;width:100%;height:auto}
+
+  /* sections */
+  section{padding:64px 0}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px}
+  h2{font-size:clamp(24px,3.2vw,34px);letter-spacing:-.015em;line-height:1.15;max-width:22ch}
+  .lead{color:var(--slate);font-size:17px;max-width:62ch;margin-top:14px}
+  .divide{border:0;border-top:1px solid var(--line)}
+
+  /* problem */
+  .prob{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
+  .prob .card{background:var(--light);border:1px solid var(--line);border-radius:12px;padding:22px}
+  .prob .card h3{font-size:16px;margin-bottom:7px}
+  .prob .card p{font-size:14.5px;color:var(--slate)}
+  @media(max-width:760px){.prob{grid-template-columns:1fr}}
+
+  /* how */
+  .how{display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:start;margin-top:34px}
+  @media(max-width:860px){.how{grid-template-columns:1fr}}
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:22px}
+  .step{display:flex;gap:16px}
+  .step .n{counter-increment:s;flex:0 0 34px;height:34px;border-radius:9px;background:#fbeae6;color:var(--accent);font-weight:800;display:grid;place-items:center}
+  .step .n::before{content:counter(s)}
+  .step h3{font-size:16.5px;margin-bottom:3px}
+  .step p{font-size:14.5px;color:var(--slate)}
+  pre{background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:20px;overflow:auto;font-family:var(--mono);font-size:13px;line-height:1.65}
+  pre .c{color:var(--code-dim)}
+  pre.tree-out{font-size:12.5px;color:#cdd8e0;margin-top:16px}
+  pre.tree-out b{color:var(--accent);font-weight:600}
+
+  /* wedge */
+  .wedge{background:var(--ink);color:#dfe6ed}
+  .wedge .eyebrow{color:#e9a08c}
+  .wedge h2{color:#fff}
+  .wedge .lead{color:#aeb9c4}
+  .feat{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:34px}
+  @media(max-width:760px){.feat{grid-template-columns:1fr}}
+  .feat .f{display:flex;gap:14px;padding:18px;border:1px solid #2c3a48;border-radius:12px;background:#222e3b}
+  .feat .f .ic{flex:0 0 26px;height:26px;border-radius:7px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+  .feat .f h3{font-size:15.5px;color:#fff;margin-bottom:3px}
+  .feat .f p{font-size:13.8px;color:#aeb9c4}
+
+  /* specs */
+  .specs{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
+  .specs span{font-size:13px;color:var(--slate);background:var(--light);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-weight:500}
+
+  /* final cta */
+  .final{text-align:center;background:
+    radial-gradient(600px 280px at 50% 0%, rgba(193,67,42,.08), transparent 60%)}
+  .final h2{margin:0 auto}
+  .final .cta-row{justify-content:center}
+  .final pre{max-width:560px;margin:26px auto 0;text-align:left}
+
+  footer{border-top:1px solid var(--line);padding:34px 0;color:var(--mute);font-size:13.5px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> NestedFlowTracker</div>
+    <nav class="nav">
+      <a href="#problem">Problem</a>
+      <a href="#how">How it works</a>
+      <a href="#why">Why it's different</a>
+      <a href="https://github.com/adelinferaru/nestedflowtracker" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div>
+</div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="wrap">
+    <span class="kicker">Zero-infra flow tracing for Laravel</span>
+    <h1>See exactly where your Laravel business flows spend their time.</h1>
+    <p class="sub">Wrap any block of code in a span. NestedFlowTracker times it and stores it as a tree —
+      in <em>your</em> database. No collectors, no external backend, no data leaving your app. Works in production.</p>
+
+    <div class="cta-row">
+      <button class="install" onclick="copyInstall()">
+        <span class="prompt">$</span><span id="cmd">composer require adelinferaru/nestedflowtracker</span>
+        <span class="copy">Copy</span>
+      </button>
+      <a class="btn-ghost" href="#how">See the viewer →</a>
+    </div>
+    <p class="meta-line">PHP 8.1+ · Laravel 10 / 11 / 12 / 13 · MIT licensed · on Packagist</p>
+
+    <div class="viewer">
+      <div class="chrome"><i></i><i></i><i></i><span class="url">your-app.test/flow/bf03f57a…56e525c</span></div>
+      <img src="art/show.png" width="2319" height="940" alt="The built-in viewer rendering a checkout flow as a timed tree: nested spans with duration bars and a failed span highlighted in red">
+    </div>
+  </div>
+</header>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="wrap">
+    <div class="eyebrow">The problem</div>
+    <h2>You can see <em>that</em> it was slow. Not <em>which step</em>.</h2>
+    <p class="lead">There's a gap between dev tooling and full observability stacks: production-safe tracing
+      of <em>your</em> business logic, kept in your own database.</p>
+    <div class="prob">
+      <div class="card"><h3>Telescope is dev-focused</h3><p>Great in development, but it traces framework internals — queries, jobs, requests — not the steps of <em>your</em> flows.</p></div>
+      <div class="card"><h3>OpenTelemetry needs infra</h3><p>Powerful, but it wants collectors and a backend you have to stand up and operate before the first trace.</p></div>
+      <div class="card"><h3>Hosted APM ships data out</h3><p>Traces go to a third-party cloud and you're priced per event. Yours stay in a table you own and can query.</p></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divide">
+
+<!-- HOW -->
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">How it works</div>
+    <h2>Wrap a block. Get a timed tree.</h2>
+    <div class="how">
+      <div class="steps">
+        <div class="step"><div class="n"></div><div><h3>Wrap it</h3><p><code>Flow::span('checkout', fn () =&gt; …)</code> — closures auto-close and are exception-safe, so a span can't leak.</p></div></div>
+        <div class="step"><div class="n"></div><div><h3>It records a tree</h3><p>Nested spans become children; one flow can cross services via a shared trace id (W3C <code>traceparent</code>).</p></div></div>
+        <div class="step"><div class="n"></div><div><h3>You read it</h3><p>Enable the built-in viewer (<code>FLOW_VIEWER=true</code>) and open <code>/flow</code> — a collapsible timed tree with failed spans highlighted. No build step.</p></div></div>
+      </div>
+      <div>
+<pre><span class="c">// wrap the flow you care about</span>
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
+
+$order = Flow::span('checkout', function () use ($cart) {
+    Flow::span('charge card',   fn () =&gt; $gateway-&gt;charge($cart));
+    Flow::span('reserve stock', fn () =&gt; $inventory-&gt;reserve($cart));
+    return Flow::span('create order', fn () =&gt; Order::create($cart));
+});</pre>
+<pre class="tree-out">checkout ................. 312ms
+├─ charge card ........... 188ms   <b>← there it is</b>
+├─ reserve stock ......... 41ms
+└─ create order .......... 83ms</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section id="why" class="wedge">
+  <div class="wrap">
+    <div class="eyebrow">Why it's different</div>
+    <h2>The space between Telescope and OpenTelemetry.</h2>
+    <p class="lead">Production-safe, business-flow level, and your data never leaves your database.</p>
+    <div class="feat">
+      <div class="f"><span class="ic">✓</span><div><h3>Zero infrastructure</h3><p>No collector, no separate backend. A Composer package and your existing database.</p></div></div>
+      <div class="f"><span class="ic">✓</span><div><h3>Production-safe</h3><p>Records only what you wrap; HTTP &amp; queue auto-instrumentation is opt-in. Disabled, the overhead is ~2µs per span.</p></div></div>
+      <div class="f"><span class="ic">✓</span><div><h3>Your business flows</h3><p>You decide what's a span — not framework internals you didn't ask about.</p></div></div>
+      <div class="f"><span class="ic">✓</span><div><h3>Your data stays yours</h3><p>Spans live in your database. Nothing is sent to a third party.</p></div></div>
+      <div class="f"><span class="ic">✓</span><div><h3>Grows with you</h3><p>W3C trace-context across services + an optional OpenTelemetry export — scale up without being forced onto OTel infra.</p></div></div>
+      <div class="f"><span class="ic">✓</span><div><h3>Pluggable storage</h3><p>database · log · null · otel drivers, plus a JSON API and the built-in viewer.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section id="start" class="final">
+  <div class="wrap">
+    <div class="eyebrow">Get started</div>
+    <h2>Trace your first flow in under 5 minutes.</h2>
+    <p class="lead" style="margin:14px auto 0">Require the package, publish the migration, wrap a span, open <code>/flow</code>.</p>
+<pre>composer require adelinferaru/nestedflowtracker
+php artisan vendor:publish --tag="flow-migrations"
+php artisan migrate
+<span class="c"># then set FLOW_VIEWER=true and visit /flow</span></pre>
+    <div class="specs" style="justify-content:center">
+      <span>PHP 8.1+</span><span>Laravel 10 / 11 / 12 / 13</span><span>MIT</span><span>Built-in viewer + JSON API</span><span>OTLP export</span><span>On Packagist</span>
+    </div>
+    <div class="cta-row">
+      <button class="install" onclick="copyInstall()"><span class="prompt">$</span><span>composer require adelinferaru/nestedflowtracker</span><span class="copy">Copy</span></button>
+      <a class="btn-ghost" href="https://github.com/adelinferaru/nestedflowtracker" target="_blank" rel="noopener">Read the docs ↗</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> NestedFlowTracker</div>
+    <div>MIT licensed · <a href="https://github.com/adelinferaru/nestedflowtracker" target="_blank" rel="noopener">github.com/adelinferaru/nestedflowtracker</a></div>
+  </div>
+</footer>
+
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<script>
+  function copyInstall(){
+    var cmd = "composer require adelinferaru/nestedflowtracker";
+    var done = function(){
+      var t = document.getElementById('toast');
+      t.classList.add('show');
+      setTimeout(function(){ t.classList.remove('show'); }, 1600);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(cmd).then(done).catch(done);
+    } else {
+      var ta=document.createElement('textarea');ta.value=cmd;document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); done();
+    }
+  }
+</script>
+</body>
+</html>

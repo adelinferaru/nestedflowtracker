@@ -206,7 +206,9 @@ drivers, performance/batched writes, JSON API) have shipped. Future ideas live i
       the `status->value` / `json_encode($context|$result)` coercions.
 
 ## Phase 7 — Release & launch
-- [ ] Docs site / rich README with the viewer screenshot; quickstart.
+- [x] Docs site / rich README with the viewer screenshot; quickstart. Landing page lives in
+      `docs/` (GitHub Pages, served from the `docs/` folder on `master`):
+      https://adelinferaru.github.io/nestedflowtracker/
 - [ ] `changelog.md`, tag `2.0.0`, Packagist, announcement.
 
 ---
