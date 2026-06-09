@@ -3,6 +3,8 @@
 [![Latest Version on Packagist][ico-version]][link-packagist]
 [![Total Downloads][ico-downloads]][link-downloads]
 
+**[adelinferaru.github.io/nestedflowtracker](https://adelinferaru.github.io/nestedflowtracker/)**
+
 A **zero-infra flow tracer**. Wrap any block of code in a *span*; it gets timed and stored as a
 tree in your own database, with nested sub-operations recorded as children. A single flow can span
 multiple applications via a shared `trace_id`.
