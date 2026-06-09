@@ -3,6 +3,13 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [3.1.2] - 2026-06-10
+
+### Changed
+- Metadata only: `composer.json` `homepage` now points to the landing page
+  (https://adelinferaru.github.io/nestedflowtracker/), with `support` links for issues,
+  source, and docs. No code changes.
+
 ## [3.1.1] - 2026-06-10
 
 ### Fixed

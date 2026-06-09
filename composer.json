@@ -9,7 +9,12 @@
             "homepage": "https://github.com/adelinferaru"
         }
     ],
-    "homepage": "https://github.com/adelinferaru/nestedflowtracker",
+    "homepage": "https://adelinferaru.github.io/nestedflowtracker/",
+    "support": {
+        "issues": "https://github.com/adelinferaru/nestedflowtracker/issues",
+        "source": "https://github.com/adelinferaru/nestedflowtracker",
+        "docs": "https://adelinferaru.github.io/nestedflowtracker/"
+    },
     "keywords": ["tracing", "spans", "flow", "laravel", "opentelemetry", "psr-18"],
     "require": {
         "php": "^8.1",
