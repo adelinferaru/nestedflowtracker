@@ -3,7 +3,7 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
-## [Unreleased]
+## [3.1.1] - 2026-06-10
 
 ### Fixed
 - **Buffered drivers no longer drop continuation flows.** `EloquentBufferedDriver`,
