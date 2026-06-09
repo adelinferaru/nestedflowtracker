@@ -28,16 +28,25 @@ class EloquentBufferedDriver implements SpanDriver
     /** @var list<Span> */
     private array $buffer = [];
 
+    /**
+     * Open spans not yet closed. The flow is complete when this returns to zero —
+     * checking the closed span's parent_span_id instead would never fire for a
+     * flow continued via options['parent_span_id'], whose outermost span has a
+     * non-null parent.
+     */
+    private int $depth = 0;
+
     public function opening(Span $span): void
     {
+        $this->depth++;
     }
 
     public function closing(Span $span): void
     {
         $this->buffer[] = $span;
 
-        // A root span (no parent) closing means the whole flow is complete.
-        if ($span->parent_span_id === null) {
+        if (--$this->depth <= 0) {
+            $this->depth = 0;
             $this->writeBuffer();
         }
     }
@@ -46,24 +55,24 @@ class EloquentBufferedDriver implements SpanDriver
     {
         // Drop the buffer without writing — the surrounding flow is being abandoned.
         $this->buffer = [];
+        $this->depth = 0;
     }
 
     private function writeBuffer(): void
     {
-        if ($this->buffer === []) {
-            return;
-        }
+        // Detach before writing so a failed INSERT can't leave spans behind to be
+        // replayed (or partially duplicated) into the next flow's write.
+        $spans = $this->buffer;
+        $this->buffer = [];
 
         $now = now()->toDateTimeString();
 
-        foreach (array_chunk($this->buffer, self::BATCH_SIZE) as $batch) {
+        foreach (array_chunk($spans, self::BATCH_SIZE) as $batch) {
             $rows = [];
             foreach ($batch as $span) {
                 $rows[] = $span->toRow() + ['created_at' => $now, 'updated_at' => $now];
             }
             FlowSpan::query()->insert($rows);
         }
-
-        $this->buffer = [];
     }
 }

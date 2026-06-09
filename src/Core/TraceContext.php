@@ -38,7 +38,9 @@ class TraceContext
             return null;
         }
 
-        return new self($m[1], $m[2], $m[3] !== '00');
+        // Only bit 0 of the flags byte is "sampled" — higher bits (e.g. the
+        // level-2 random-trace-id flag, 0x02) must not read as sampled.
+        return new self($m[1], $m[2], (hexdec($m[3]) & 0x01) === 0x01);
     }
 
     /**
@@ -58,6 +60,20 @@ class TraceContext
             return bin2hex(random_bytes(8));
         }
 
-        return str_pad(substr(dechex((int) $id), 0, 16), 16, '0', STR_PAD_LEFT);
+        $id = (string) $id;
+
+        // Already a 16-hex span id — use it as-is.
+        if (preg_match('/^[0-9a-f]{16}$/i', $id)) {
+            return strtolower($id);
+        }
+
+        // A positive integer key hex-encodes directly. Anything else (uuid/ulid
+        // keys, zero) hashes to a stable id instead of (int)-casting into the
+        // W3C-invalid all-zero id or a truncated leading-digits value.
+        if (ctype_digit($id) && $id !== '0') {
+            return str_pad(substr(dechex((int) $id), 0, 16), 16, '0', STR_PAD_LEFT);
+        }
+
+        return substr(hash('sha256', $id), 0, 16);
     }
 }

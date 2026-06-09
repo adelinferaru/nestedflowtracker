@@ -74,6 +74,27 @@ class BufferedPdoDriverTest extends TestCase
         $this->assertSame(201, $this->countRows());
     }
 
+    public function test_continuation_flow_with_explicit_parent_span_id_is_written(): void
+    {
+        // Continue a flow whose root closed in an earlier process: the outermost
+        // span has a non-null parent_span_id, so completion cannot be detected by
+        // "closed span has no parent" — only by the open-span count reaching zero.
+        $tracker = $this->trackerWith(new BufferedPdoDriver($this->pdo));
+
+        $tracker->start('continuation', [
+            'trace_id' => str_repeat('ab', 16),
+            'parent_span_id' => str_repeat('cd', 8),
+        ]);
+        $tracker->start('child');
+        $tracker->end();
+
+        $this->assertSame(0, $this->countRows());
+
+        $tracker->end();
+
+        $this->assertSame(2, $this->countRows());
+    }
+
     private function countRows(): int
     {
         $row = $this->pdo->query('SELECT COUNT(*) AS c FROM flow_spans')->fetch(PDO::FETCH_ASSOC);

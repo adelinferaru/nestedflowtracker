@@ -58,6 +58,22 @@ class BufferedDatabaseDriverTest extends TestCase
         $this->assertSame($root->span_id, $child->parent_span_id);
     }
 
+    public function test_continuation_flow_with_explicit_parent_span_id_is_written(): void
+    {
+        // The outermost span of a continued flow has a non-null parent_span_id,
+        // so the buffer must flush on the open-span count reaching zero, not on
+        // "closed span has no parent".
+        Flow::start('continuation', [
+            'trace_id' => str_repeat('ab', 16),
+            'parent_span_id' => str_repeat('cd', 8),
+        ]);
+        Flow::end();
+
+        $span = FlowSpan::query()->firstOrFail();
+        $this->assertSame(str_repeat('ab', 16), $span->trace_id);
+        $this->assertSame(str_repeat('cd', 8), $span->parent_span_id);
+    }
+
     public function test_large_flow_chunks_into_batches_under_sqlite_param_limit(): void
     {
         // 200 spans * 14 columns = 2800 placeholders — well past SQLite's

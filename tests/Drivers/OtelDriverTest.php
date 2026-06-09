@@ -47,4 +47,24 @@ class OtelDriverTest extends TestCase
         $this->assertNotNull($child);
         $this->assertArrayHasKey('parentSpanId', $child);
     }
+
+    public function test_continuation_flow_with_explicit_parent_span_id_is_exported(): void
+    {
+        // The outermost span of a continued flow has a non-null parent_span_id,
+        // so the export must trigger on the open-span count reaching zero, not on
+        // "closed span has no parent".
+        Flow::span('continuation', fn () => null, [
+            'trace_id' => str_repeat('ab', 16),
+            'parent_span_id' => str_repeat('cd', 8),
+        ]);
+
+        $this->assertCount(1, $this->http->sent);
+
+        $payload = json_decode((string) $this->http->sent[0]->getBody(), true);
+        $spans = $payload['resourceSpans'][0]['scopeSpans'][0]['spans'] ?? [];
+
+        $this->assertCount(1, $spans);
+        $this->assertSame(str_repeat('ab', 16), $spans[0]['traceId']);
+        $this->assertSame(str_repeat('cd', 8), $spans[0]['parentSpanId'] ?? null);
+    }
 }

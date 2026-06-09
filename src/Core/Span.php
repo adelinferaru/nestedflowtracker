@@ -82,9 +82,28 @@ class Span
             'message' => $this->message,
             'duration' => $this->duration,
             'started_at' => $this->started_at,
-            'context' => $this->context !== null ? json_encode($this->context) : null,
-            'result' => $this->result !== null ? json_encode($this->result) : null,
+            'context' => self::encode($this->context),
+            'result' => self::encode($this->result),
         ];
+    }
+
+    /**
+     * JSON-encode a context/result payload without ever yielding `false` — invalid
+     * UTF-8 is substituted and unencodable values (NAN, resources, recursion) are
+     * dropped rather than turning the value into '' (which PDO would bind and a
+     * MySQL JSON column would reject, failing the whole row).
+     *
+     * @param array<string, mixed>|null $value
+     */
+    private static function encode(?array $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $json = json_encode($value, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
+
+        return $json === false ? null : $json;
     }
 
     /**

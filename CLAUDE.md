@@ -40,9 +40,10 @@ directly.
 - `Core/Drivers/NullDriver.php` — discards spans.
 - `Core/Drivers/LogDriver.php` — PSR-3 `LoggerInterface`-based structured log lines.
 - `Core/Drivers/PdoDriver.php` + `BufferedPdoDriver.php` — framework-agnostic SQL drivers; the
-  buffered variant bulk-inserts on root close. `PdoSchema::create()` provisions the lean
-  `flow_spans` table (sqlite/mysql/pgsql).
-- `Core/Drivers/OtelDriver.php` — buffers in memory, calls `OtelExporter::exportSpans()` on root close.
+  buffered variant bulk-inserts when the flow completes (open-span count returns to zero).
+  `PdoSchema::create()` provisions the lean `flow_spans` table (sqlite/mysql/pgsql).
+- `Core/Drivers/OtelDriver.php` — buffers in memory, calls `OtelExporter::exportSpans()` when
+  the flow completes.
 - `Core/Otel/OtelExporter.php` — PSR-18 client + PSR-17 factories. Builds OTLP-JSON, POSTs to
   `{endpoint}/v1/traces`. No OTel SDK dependency.
 - `Core/Otel/OtelExporterConfig.php` — readonly DTO: endpoint, headers, serviceName.
@@ -67,8 +68,8 @@ directly.
 - `Laravel/Drivers/EloquentDatabaseDriver.php` — INSERT on `opening()`, `UPDATE WHERE span_id = ?`
   on `closing()`. Same shape as `Core\Drivers\PdoDriver`, just on Laravel's connection (so
   `flow.connection` and Eloquent's casts apply on the viewer side). No per-flow state.
-- `Laravel\Drivers\EloquentBufferedDriver.php` — like the above but bulk-inserts the whole flow on
-  root close (`flow.buffer`). Spans aren't persisted until the flow completes.
+- `Laravel\Drivers\EloquentBufferedDriver.php` — like the above but bulk-inserts the whole flow
+  when it completes (`flow.buffer`). Spans aren't persisted until the flow completes.
 - `Laravel/Http/Middleware/TrackRequest.php` — wraps each HTTP request in a root span (opt-in).
 - `Laravel/Http/Middleware/Authorize.php` — guards the viewer (local env, or a `viewFlow` gate).
 - `Laravel/Http/Controllers/FlowViewerController.php` — viewer `index` (recent flows) + `show` (tree).
@@ -114,7 +115,7 @@ directly.
   `$driver->opening()/closing()`. Parent linkage is by `parent_span_id` (16-hex). `database`
   persists via `Laravel\Drivers\EloquentDatabaseDriver` (enables viewer + commands + the DB OTel
   export); `log`/`null`/`otel` are emit-only. `flow.buffer` swaps in `EloquentBufferedDriver`
-  (one bulk insert per flow on root close; spans not persisted until the flow completes). The
+  (one bulk insert per flow on completion; spans not persisted until the flow completes). The
   framework-agnostic `Core\Drivers\PdoDriver` and `BufferedPdoDriver` are not wired into
   `flow.driver`; non-Laravel callers instantiate them directly.
 - **Tree reads use `parent_span_id`, ordered by `started_at`** (viewer, `flow:show`, OTel export)
@@ -141,7 +142,7 @@ directly.
 ## Usage
 
 ```php
-use AdelinFeraru\NestedFlowTracker\Facades\Flow;
+use AdelinFeraru\NestedFlowTracker\Laravel\Facades\Flow;
 
 $user = Flow::span('register user', function ($span) use ($data) {
     $account = Flow::span('create account', fn () => Account::create($data));

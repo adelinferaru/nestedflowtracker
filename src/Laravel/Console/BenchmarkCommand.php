@@ -21,6 +21,9 @@ class BenchmarkCommand extends Command
         $flows = max(1, (int) $this->option('flows'));
         $spans = max(0, (int) $this->option('spans'));
 
+        // The benchmark's flows are rolled back — don't queue OTel exports for them.
+        config(['flow.otel.enabled' => false]);
+
         $this->info("Benchmarking {$flows} flows x " . ($spans + 1) . ' spans each...');
 
         $rows = [
