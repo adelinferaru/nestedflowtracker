@@ -3,6 +3,20 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [3.1.3] - 2026-06-10
+
+### Changed
+- **Lean dist archive.** `.gitattributes` now `export-ignore`s tests, docs, the demo/marketing
+  assets, and tooling config, so `composer require` downloads only the package itself (~1.5 MB
+  smaller). No code changes.
+
+### Added
+- `examples/plain-php.php` — a runnable round trip without Laravel: trace a checkout (including
+  a failed span) with the framework-agnostic Core, store it via `BufferedPdoDriver` in SQLite,
+  read the tree back with plain SQL. Linked from the README.
+- `SECURITY.md` (private disclosure path, supported versions) and CI/PHP/license badges in the
+  README.
+
 ## [3.1.2] - 2026-06-10
 
 ### Changed
