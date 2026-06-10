@@ -12,7 +12,7 @@ multiple applications via a shared `trace_id`.
 No collectors, no external backend — unlike OpenTelemetry you need no infrastructure, and unlike
 Telescope it traces *your* business flows (not framework internals) and works in production.
 
-![A checkout flow rendered as a timed tree in the built-in viewer](art/show.png)
+![Wrap a checkout in spans, then watch the built-in viewer render it as a timed tree](art/demo.gif)
 
 **Requires** PHP 8.1+. As of **3.0** the package is split into a framework-agnostic **Core** (only
 PSR-3/14/17/18 dependencies) and a **Laravel** adapter (auto-discovered on Laravel 10, 11, 12, or 13;
