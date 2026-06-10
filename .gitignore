@@ -1,6 +1,7 @@
 /vendor
 /build
 /.idea
+/.claude
 /.phpunit.cache
 .phpunit.result.cache
 composer.phar

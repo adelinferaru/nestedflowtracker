@@ -190,9 +190,9 @@ rather than suppressing them. (`src/config/*` is excluded as declarative data.)
   readonly, constructor promotion, anonymous migrations).
 - **Published on Packagist** (currently 2.5.x; see `changelog.md` / git tags). It follows SemVer
   now, so breaking changes need a new major; additive changes are minor, fixes are patch.
-- **Commit/PR style — no AI attribution.** Do **not** add `Co-Authored-By: Claude …` trailers to
-  commits, or "Generated with Claude Code" lines to PR bodies. This is a public repo and the owner
-  wants clean history. (Overrides the default Claude Code commit trailer.)
+- **Commit/PR style — no tool attribution.** House style: commit messages and PR bodies describe
+  the change and nothing else — no `Co-Authored-By` trailers for tools, no "Generated with …"
+  footers. (Overrides the default Claude Code commit trailer.)
 - Keep `composer test` and `composer analyse` (PHPStan level 6, no baseline) green on every change.
 - **Verify on both Laravel 10 and 12 before releasing** — the support matrix's low end has bitten
   us more than once (e.g. `casts()` is L11+, `guzzlehttp/guzzle` only transitively present on L12).

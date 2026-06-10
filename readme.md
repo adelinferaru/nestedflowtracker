@@ -1,7 +1,10 @@
 # NestedFlowTracker
 
+[![CI][ico-ci]][link-ci]
 [![Latest Version on Packagist][ico-version]][link-packagist]
 [![Total Downloads][ico-downloads]][link-downloads]
+[![PHP Version][ico-php]][link-packagist]
+[![License][ico-license]](license.md)
 
 **[adelinferaru.github.io/nestedflowtracker](https://adelinferaru.github.io/nestedflowtracker/)**
 
@@ -334,8 +337,13 @@ composer analyse
 
 MIT. Please see the [license file](license.md) for more information.
 
+[ico-ci]: https://github.com/adelinferaru/nestedflowtracker/actions/workflows/ci.yml/badge.svg
 [ico-version]: https://img.shields.io/packagist/v/adelinferaru/nestedflowtracker.svg?style=flat-square
 [ico-downloads]: https://img.shields.io/packagist/dt/adelinferaru/nestedflowtracker.svg?style=flat-square
+[ico-php]: https://img.shields.io/packagist/dependency-v/adelinferaru/nestedflowtracker/php.svg?style=flat-square
+[ico-license]: https://img.shields.io/packagist/l/adelinferaru/nestedflowtracker.svg?style=flat-square
+
+[link-ci]: https://github.com/adelinferaru/nestedflowtracker/actions/workflows/ci.yml
 
 [link-packagist]: https://packagist.org/packages/adelinferaru/nestedflowtracker
 [link-downloads]: https://packagist.org/packages/adelinferaru/nestedflowtracker
