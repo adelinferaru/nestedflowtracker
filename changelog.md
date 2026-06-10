@@ -3,6 +3,24 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Added
+- **`#[Trace]` attribute** (`Core\Attributes\Trace`) — NestJS-decorator-style tracing at the
+  call sites the package owns. Annotate a route action (or a whole controller class) or a
+  queued job (class or `handle()`) with `#[Trace]` / `#[Trace('span name')]` and it's wrapped
+  in a span; the attribute is the opt-in, `flow.attributes` (env `FLOW_ATTRIBUTES`, default
+  `true`) is the kill switch.
+  - Route actions: new `TraceAction` middleware on the web/api groups (after `TrackRequest`,
+    so attributed actions nest under the request root when `flow.auto.http` is on); 5xx
+    responses mark the span failed. Controller methods, class-level, invokable controllers,
+    and attributed route closures are all supported.
+  - Queued jobs: attributed jobs are traced even with `flow.auto.queue` off (per-job opt-in
+    instead of all-jobs); failed jobs record the exception. With `flow.auto.queue` on,
+    behavior is unchanged (every job traced). Reflection lookups are cached per class.
+  - PHP attributes carry no behavior (unlike TypeScript decorators), so arbitrary service
+    methods are out of scope — use `Flow::span()` there.
+
 ## [3.1.3] - 2026-06-10
 
 ### Changed

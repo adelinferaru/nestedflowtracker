@@ -213,6 +213,33 @@ FLOW_AUTO_QUEUE=true   # a root span per queued job
 
 Both default to off, so installing the package never silently writes spans.
 
+### The `#[Trace]` attribute
+
+Annotate a route action (or a whole controller) or a queued job to wrap it in a span — the
+attribute is the opt-in, no other code or config:
+
+```php
+use AdelinFeraru\NestedFlowTracker\Core\Attributes\Trace;
+
+class CheckoutController
+{
+    #[Trace('checkout')]                  // or #[Trace] to name it after the action
+    public function store(Request $request) { /* … */ }
+}
+
+#[Trace]                                  // class-level: on a job (or every controller action)
+class SendInvoice implements ShouldQueue { /* … */ }
+```
+
+- **Route actions** are wrapped via middleware on the `web`/`api` groups; with `FLOW_AUTO_HTTP`
+  on, the action span nests under the request's root span. 5xx responses mark the span failed.
+- **Queued jobs** with the attribute are traced even when `FLOW_AUTO_QUEUE` is off — per-job
+  opt-in instead of all-jobs. Failed jobs record the exception.
+- PHP attributes are metadata, not decorators — there's no engine-level interception, so the
+  attribute works where the package owns the call site (actions and jobs). For arbitrary
+  service methods, wrap with `Flow::span()`.
+- Detection costs one cached reflection lookup per request/job. Kill switch: `FLOW_ATTRIBUTES=false`.
+
 ## Viewer
 
 A small built-in UI to browse recorded flows as timed trees — no build step, no assets to compile.
@@ -306,6 +333,7 @@ collector with no database.
 | `FLOW_CONNECTION` | `flow.connection` | `null` | Connection for the `flow_spans` table (null = default). |
 | `FLOW_AUTO_HTTP` | `flow.auto.http` | `false` | Auto root span per HTTP request. |
 | `FLOW_AUTO_QUEUE` | `flow.auto.queue` | `false` | Auto root span per queued job. |
+| `FLOW_ATTRIBUTES` | `flow.attributes` | `true` | Honor the `#[Trace]` attribute on actions/jobs. |
 | `FLOW_VIEWER` | `flow.viewer.enabled` | `false` | Register the built-in viewer routes. |
 | `FLOW_VIEWER_PATH` | `flow.viewer.path` | `flow` | URL prefix for the viewer. |
 | `FLOW_OTEL_ENABLED` | `flow.otel.enabled` | `false` | Export completed flows to an OTLP/HTTP collector. |

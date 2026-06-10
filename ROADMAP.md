@@ -117,7 +117,10 @@ Pillar 2. Value with zero manual calls. **Scope this round: HTTP + queue** (opt-
 - [x] Config toggles `flow.auto.http` / `flow.auto.queue` (default off → zero overhead).
 - [x] Tests (HTTP 200/500 + nesting + opt-in gate; queue ok/failed/isolation) on Laravel 10 & 12;
       PHPStan level 6 clean. README + CLAUDE.md updated.
-- [ ] *(deferred)* `#[Trace]` method attribute — needs a call-interception mechanism.
+- [x] *(was deferred)* `#[Trace]` attribute — shipped in 3.2.0 without engine-level interception:
+      reflection at the call sites the package owns (route actions via `TraceAction` middleware,
+      queued jobs via the queue listeners). PHP attributes stay inert metadata through 8.5, so
+      arbitrary-method interception remains out of scope (would need ext-opentelemetry's hooks).
 - [ ] *(deferred → Phase 6)* batch/defer DB writes (flush at end of request).
 
 ## Phase 5 — The viewer (adoption driver)  *(core done)*
