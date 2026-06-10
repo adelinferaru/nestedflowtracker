@@ -86,6 +86,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | #[Trace] attribute
+    |--------------------------------------------------------------------------
+    |
+    | Annotate a route action (or controller class) or a queued job with
+    | #[Trace] / #[Trace('span name')] to wrap it in a span — no other code.
+    | Writing the attribute is the opt-in; this flag is the kill switch.
+    | Detection costs one cached reflection lookup per request/job.
+    |
+    */
+    'attributes' => env('FLOW_ATTRIBUTES', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Viewer
     |--------------------------------------------------------------------------
     |

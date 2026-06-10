@@ -34,6 +34,8 @@ directly.
 - `Core/FlowConfig.php` — readonly DTO with `enabled` (bool) and `component` (string). The Laravel
   provider builds one from `config('flow.*')`; non-Laravel callers construct it directly.
 - `Core/Enums/SpanStatus.php` — `Running` / `Ok` / `Failed`.
+- `Core/Attributes/Trace.php` — `#[Trace]` marker attribute (class/method/function targets,
+  optional span name). Inert metadata; the Laravel adapter reads it via reflection.
 - `Core/Events/SpanStarted.php`, `SpanFinished.php` — plain objects dispatched on open/close.
 - `Core/TraceContext.php` — W3C `traceparent` value object (parse/build; our `trace_id` is 32-hex).
 - `Core/Drivers/SpanDriver.php` — `opening(Span, ?Span)` / `closing(Span)` interface.
@@ -71,6 +73,8 @@ directly.
 - `Laravel\Drivers\EloquentBufferedDriver.php` — like the above but bulk-inserts the whole flow
   when it completes (`flow.buffer`). Spans aren't persisted until the flow completes.
 - `Laravel/Http/Middleware/TrackRequest.php` — wraps each HTTP request in a root span (opt-in).
+- `Laravel/Http/Middleware/TraceAction.php` — wraps `#[Trace]`-attributed route actions in a
+  span (registered on web+api when `flow.attributes` is on, after TrackRequest so it nests).
 - `Laravel/Http/Middleware/Authorize.php` — guards the viewer (local env, or a `viewFlow` gate).
 - `Laravel/Http/Controllers/FlowViewerController.php` — viewer `index` (recent flows) + `show` (tree).
 - `Laravel/Http/Controllers/FlowApiController.php` — JSON read API (`api/flows`, `api/flows/{trace}`),
@@ -136,8 +140,15 @@ directly.
   web + api groups (via the HTTP kernel, so it survives the kernel's group sync) and opens a root
   span per request. With `flow.auto.queue`, the provider listens to `JobProcessing`/`JobProcessed`/
   `JobExceptionOccurred` and opens a root span per job (calling `flush()` first so each job is an
-  isolated trace). Both default off → zero overhead unless enabled. The `#[Trace]` attribute and
-  batched writes were deferred to later phases.
+  isolated trace). Both default off → zero overhead unless enabled.
+- **`#[Trace]` attribute (3.2):** annotate a route action / controller class / queued job to wrap
+  it in a span — the attribute is the opt-in; `flow.attributes` (default `true`, env
+  `FLOW_ATTRIBUTES`) is the kill switch. Actions via the `TraceAction` group middleware (5xx →
+  failed; nests under TrackRequest's root when auto.http is on); jobs via the shared queue
+  listeners (attributed jobs are traced even with auto.queue off; the open/close listeners share
+  one skip predicate so they stay symmetric; per-class reflection lookups are cached). PHP
+  attributes are inert metadata — no engine interception — so this only works at call sites the
+  package owns; arbitrary service methods still use `Flow::span()`.
 
 ## Usage
 
@@ -162,6 +173,8 @@ flow()->span('charge card', fn () => $gateway->charge($card));
   `FLOW_LOG_CHANNEL` for the log driver; `FLOW_BUFFER` for buffered bulk-insert (database).
 - `FLOW_CONNECTION` — DB connection for `flow_spans` (null = default; or a named connection).
 - `FLOW_AUTO_HTTP` / `FLOW_AUTO_QUEUE` — opt-in auto-instrumentation (default `false`).
+- `FLOW_ATTRIBUTES` — honor `#[Trace]` on route actions and queued jobs (default `true`; the
+  attribute in user code is the real opt-in).
 - `FLOW_OTEL_ENABLED` / `FLOW_OTEL_ENDPOINT` — opt-in OTLP/HTTP export (default off).
 - `FLOW_VIEWER` / `FLOW_VIEWER_PATH` — opt-in built-in viewer UI (default off; path `flow`).
   Access: allowed in `local`, else needs a `viewFlow` gate. Views always register (so PHPStan,

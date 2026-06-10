@@ -25,7 +25,9 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Controllers\FlowApiController;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Controllers\FlowViewerController;
+use AdelinFeraru\NestedFlowTracker\Core\Attributes\Trace;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Middleware\Authorize;
+use AdelinFeraru\NestedFlowTracker\Laravel\Http\Middleware\TraceAction;
 use AdelinFeraru\NestedFlowTracker\Laravel\Http\Middleware\TrackRequest;
 use AdelinFeraru\NestedFlowTracker\Laravel\Otel\ExportTrace;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -40,6 +42,9 @@ use Illuminate\Support\ServiceProvider;
 
 class FlowServiceProvider extends ServiceProvider
 {
+    /** @var array<string, Trace|null> Cached #[Trace] lookups per job class. */
+    private array $jobTraceAttributes = [];
+
     /**
      * Register package services.
      */
@@ -117,11 +122,20 @@ class FlowServiceProvider extends ServiceProvider
         $config = $this->app['config'];
 
         if ($config->get('flow.auto.http')) {
-            $this->registerHttpInstrumentation();
+            $this->appendMiddlewareToGroups(TrackRequest::class);
         }
 
-        if ($config->get('flow.auto.queue')) {
-            $this->registerQueueInstrumentation();
+        // #[Trace] attribute instrumentation: writing the attribute is the
+        // opt-in; flow.attributes (default true) is the kill switch. Appended
+        // after TrackRequest so attributed actions nest under the request root.
+        if ($config->get('flow.attributes', true)) {
+            $this->appendMiddlewareToGroups(TraceAction::class);
+        }
+
+        if ($config->get('flow.auto.queue') || $config->get('flow.attributes', true)) {
+            // With auto.queue every job is traced; otherwise only jobs carrying
+            // the #[Trace] attribute.
+            $this->registerQueueInstrumentation(traceAllJobs: (bool) $config->get('flow.auto.queue'));
         }
 
         if ($config->get('flow.viewer.enabled')) {
@@ -204,12 +218,12 @@ class FlowServiceProvider extends ServiceProvider
     }
 
     /**
-     * Add the request-tracking middleware to the web and api groups.
+     * Add a middleware to the web and api groups.
      *
      * Appended via the HTTP kernel (not the router) so it survives the kernel
      * syncing its own default groups to the router on the first request.
      */
-    private function registerHttpInstrumentation(): void
+    private function appendMiddlewareToGroups(string $middleware): void
     {
         if (! $this->app->bound(Kernel::class)) {
             return;
@@ -224,17 +238,30 @@ class FlowServiceProvider extends ServiceProvider
         }
 
         foreach (['web', 'api'] as $group) {
-            $kernel->appendMiddlewareToGroup($group, TrackRequest::class);
+            $kernel->appendMiddlewareToGroup($group, $middleware);
         }
     }
 
     /**
-     * Open/close a root span around each queued job via the queue events.
+     * Open/close a span around queued jobs via the queue events.
+     *
+     * With $traceAllJobs every job gets a span (flow.auto.queue); otherwise
+     * only jobs whose class (or handle() method) carries #[Trace].
      */
-    private function registerQueueInstrumentation(): void
+    private function registerQueueInstrumentation(bool $traceAllJobs): void
     {
         /** @var Dispatcher $events */
         $events = $this->app['events'];
+
+        // Shared skip predicate — the closing listeners must mirror the opening
+        // one exactly, or they would pop spans for jobs that never opened one.
+        $skip = function (string $jobName) use ($traceAllJobs): bool {
+            if ($jobName === ExportTrace::class) {
+                return true; // Don't trace our own exporter.
+            }
+
+            return ! $traceAllJobs && $this->jobTraceAttribute($jobName) === null;
+        };
 
         // The spans opened by JobProcessing, innermost job last. Tracked so the
         // closing listeners end the job's own span (closing anything the job
@@ -242,9 +269,10 @@ class FlowServiceProvider extends ServiceProvider
         /** @var \SplStack<\AdelinFeraru\NestedFlowTracker\Core\Span|null> $jobSpans */
         $jobSpans = new \SplStack();
 
-        $events->listen(JobProcessing::class, function (JobProcessing $event) use ($jobSpans): void {
-            if ($event->job->resolveName() === ExportTrace::class) {
-                return; // Don't trace our own exporter.
+        $events->listen(JobProcessing::class, function (JobProcessing $event) use ($jobSpans, $skip): void {
+            $jobName = $event->job->resolveName();
+            if ($skip($jobName)) {
+                return;
             }
             $flow = $this->app->make(FlowTracker::class);
 
@@ -258,7 +286,7 @@ class FlowServiceProvider extends ServiceProvider
                 $flow->flush();
             }
 
-            $jobSpans->push($flow->start('job: ' . $event->job->resolveName(), [
+            $jobSpans->push($flow->start($this->jobTraceAttribute($jobName)->name ?? 'job: ' . $jobName, [
                 'root' => ! $nested,
                 'context' => [
                     'connection' => $event->connectionName,
@@ -288,19 +316,45 @@ class FlowServiceProvider extends ServiceProvider
             $flow->end();
         };
 
-        $events->listen(JobProcessed::class, function (JobProcessed $event) use ($closeJobSpan): void {
-            if ($event->job->resolveName() === ExportTrace::class) {
+        $events->listen(JobProcessed::class, function (JobProcessed $event) use ($closeJobSpan, $skip): void {
+            if ($skip($event->job->resolveName())) {
                 return;
             }
             $closeJobSpan($this->app->make(FlowTracker::class), null);
         });
 
-        $events->listen(JobExceptionOccurred::class, function (JobExceptionOccurred $event) use ($closeJobSpan): void {
-            if ($event->job->resolveName() === ExportTrace::class) {
+        $events->listen(JobExceptionOccurred::class, function (JobExceptionOccurred $event) use ($closeJobSpan, $skip): void {
+            if ($skip($event->job->resolveName())) {
                 return;
             }
             $closeJobSpan($this->app->make(FlowTracker::class), $event->exception);
         });
+    }
+
+    /**
+     * The #[Trace] attribute on a job class (or its handle() method), cached —
+     * the lookup runs on every queue event when attribute tracing is active.
+     *
+     * @param class-string|string $class
+     */
+    private function jobTraceAttribute(string $class): ?Trace
+    {
+        if (array_key_exists($class, $this->jobTraceAttributes)) {
+            return $this->jobTraceAttributes[$class];
+        }
+
+        if (! class_exists($class)) {
+            return $this->jobTraceAttributes[$class] = null;
+        }
+
+        $reflection = new \ReflectionClass($class);
+        $attributes = $reflection->getAttributes(Trace::class);
+
+        if ($attributes === [] && $reflection->hasMethod('handle')) {
+            $attributes = $reflection->getMethod('handle')->getAttributes(Trace::class);
+        }
+
+        return $this->jobTraceAttributes[$class] = ($attributes === [] ? null : $attributes[0]->newInstance());
     }
 
     /**
