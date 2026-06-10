@@ -3,7 +3,7 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
-## [Unreleased]
+## [3.2.0] - 2026-06-11
 
 ### Added
 - **`#[Trace]` attribute** (`Core\Attributes\Trace`) — NestJS-decorator-style tracing at the
