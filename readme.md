@@ -114,6 +114,20 @@ Other Core drivers: `LogDriver(LoggerInterface)` (PSR-3), `NullDriver`, and `Ote
 PSR-18/17 `Core\Otel\OtelExporter`). All implement `Core\Drivers\SpanDriver` — bring your own if
 you want a different backend.
 
+A complete runnable round trip — trace a flow (including a failed span), store it in SQLite,
+read the tree back with plain SQL — lives in [`examples/plain-php.php`](examples/plain-php.php):
+
+```bash
+php examples/plain-php.php
+```
+
+```
+checkout                        66.1 ms
+   charge card                     43.1 ms
+   reserve stock                   12.6 ms
+   send confirmation email         10.0 ms  ⚠ failed
+```
+
 ### Enriching a span
 
 The open span is passed to your callback:
