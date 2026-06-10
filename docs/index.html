@@ -77,6 +77,9 @@
 
   /* how */
   .how{display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:start;margin-top:34px}
+  /* min-width:0 stops the unbreakable code lines in pre from blowing the grid
+     (and the whole page) wider than the viewport */
+  .how > *{min-width:0}
   @media(max-width:860px){.how{grid-template-columns:1fr}}
   .steps{counter-reset:s;display:flex;flex-direction:column;gap:22px}
   .step{display:flex;gap:16px}
@@ -116,6 +119,12 @@
   footer .wrap{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* small screens: keep the install command on one line, wrap the quickstart */
+  @media(max-width:640px){
+    .install{font-size:12.5px;padding:12px 13px;gap:8px}
+    .final pre{white-space:pre-wrap;word-break:break-word}
+  }
 </style>
 </head>
 <body>
@@ -151,7 +160,11 @@
 
     <div class="viewer">
       <div class="chrome"><i></i><i></i><i></i><span class="url">your-app.test/flow/a3f8c91d…ef56ab78</span></div>
-      <img src="art/demo.gif" width="1080" height="684" alt="Demo: a checkout wrapped in spans, the viewer index listing recent flows, and the flow rendered as a timed tree with duration bars">
+      <picture>
+        <!-- On phones the animated frames are too small to read — show the static tree. -->
+        <source media="(max-width: 640px)" srcset="art/show.png">
+        <img src="art/demo.gif" width="1080" height="576" alt="Demo: a checkout wrapped in spans, the viewer index listing recent flows, and the flow rendered as a timed tree with duration bars">
+      </picture>
     </div>
   </div>
 </header>
