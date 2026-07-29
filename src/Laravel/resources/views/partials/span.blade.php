@@ -12,6 +12,7 @@
                 <span class="name" title="{{ $span->name }}">{{ $span->name }}</span>
                 <span class="bar {{ $status === 'failed' ? 'failed' : '' }}"><span style="width: {{ $pct }}%"></span></span>
                 <span class="dur mono">{{ number_format($ms, 1) }} ms</span>
+                @include('flow::partials.span-meta', ['span' => $span])
             </div>
         </summary>
         <div class="children">
@@ -25,5 +26,6 @@
         <span class="name" title="{{ $span->name }}">{{ $span->name }}</span>
         <span class="bar {{ $status === 'failed' ? 'failed' : '' }}"><span style="width: {{ $pct }}%"></span></span>
         <span class="dur mono">{{ number_format($ms, 1) }} ms</span>
+        @include('flow::partials.span-meta', ['span' => $span])
     </div>
 @endif

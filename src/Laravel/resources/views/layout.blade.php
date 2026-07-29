@@ -67,6 +67,13 @@
         .bar > span { display: block; height: 100%; background: var(--accent); }
         .bar.failed > span { background: var(--failed); }
         .dur { text-align: right; color: var(--muted); }
+        .span-meta {
+            grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 14px;
+            font-size: 12px; color: var(--muted); min-width: 0;
+        }
+        .node-leaf .span-meta { margin-left: 18px; }
+        .span-meta .kv, .span-meta .meta-message { overflow-wrap: anywhere; white-space: normal; }
+        .span-meta .meta-message { font-style: italic; }
     </style>
 </head>
 <body>
