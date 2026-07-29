@@ -35,6 +35,16 @@ class CommandsTest extends TestCase
             ->assertExitCode(0);
     }
 
+    public function test_show_prints_span_context(): void
+    {
+        Flow::span('render', fn () => null, ['context' => ['boot_ms' => 129.3]]);
+        $trace = Flow::traceId();
+
+        $this->artisan('flow:show', ['trace' => $trace])
+            ->expectsOutputToContain('boot_ms=129.3')
+            ->assertExitCode(0);
+    }
+
     public function test_show_fails_for_an_unknown_trace(): void
     {
         $this->artisan('flow:show', ['trace' => 'does-not-exist'])->assertExitCode(1);

@@ -4,7 +4,9 @@ namespace AdelinFeraru\NestedFlowTracker\Laravel\Console;
 
 use AdelinFeraru\NestedFlowTracker\Core\Enums\SpanStatus;
 use AdelinFeraru\NestedFlowTracker\Laravel\Eloquent\FlowSpan;
+use AdelinFeraru\NestedFlowTracker\Laravel\Support\SpanMeta;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class ShowFlowCommand extends Command
 {
@@ -50,14 +52,24 @@ class ShowFlowCommand extends Command
             default => 'gray',
         };
 
-        $this->line(sprintf(
+        $line = sprintf(
             '%s%s  <fg=gray>%s ms</> <fg=%s>%s</>',
             str_repeat('  ', $depth),
             $span->name,
             number_format(($span->duration ?? 0) * 1000, 1),
             $color,
             $span->status->value,
-        ));
+        );
+
+        // Same metadata shape as the viewer: message, then context/result pairs.
+        $meta = $span->message !== null && $span->message !== '' ? [$span->message] : [];
+        $meta = [...$meta, ...SpanMeta::pairs($span->context), ...SpanMeta::pairs($span->result)];
+
+        if ($meta !== []) {
+            $line .= '  <fg=gray>' . OutputFormatter::escape(implode(' ', $meta)) . '</>';
+        }
+
+        $this->line($line);
 
         foreach ($childrenByParent[$span->span_id] ?? [] as $child) {
             $this->printSpan($child, $childrenByParent, $depth + 1);

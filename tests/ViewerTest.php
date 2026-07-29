@@ -51,6 +51,43 @@ class ViewerTest extends TestCase
             ->assertSee('charge card');
     }
 
+    public function test_show_renders_span_context(): void
+    {
+        Flow::span('render', fn () => null, [
+            'context' => ['boot_ms' => 129.3, 'q_type' => 'MULTIPLE_CHOICE'],
+        ]);
+        $trace = Flow::traceId();
+
+        $this->get('/flow/' . $trace)
+            ->assertOk()
+            ->assertSee('boot_ms=129.3')
+            ->assertSee('q_type=MULTIPLE_CHOICE');
+    }
+
+    public function test_show_renders_failure_details_from_result(): void
+    {
+        try {
+            Flow::span('boom', fn () => throw new \RuntimeException('kaboom'));
+        } catch (\RuntimeException) {
+        }
+        $trace = Flow::traceId();
+
+        $this->get('/flow/' . $trace)
+            ->assertOk()
+            ->assertSee('message=kaboom');
+    }
+
+    public function test_show_omits_the_meta_row_for_spans_without_metadata(): void
+    {
+        Flow::span('bare', fn () => null);
+        $trace = Flow::traceId();
+
+        $this->get('/flow/' . $trace)
+            ->assertOk()
+            ->assertSee('bare')
+            ->assertDontSee('class="span-meta"', false);
+    }
+
     public function test_unknown_trace_returns_404(): void
     {
         $this->get('/flow/does-not-exist')->assertNotFound();

@@ -3,6 +3,17 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Added
+- **Span metadata is now visible.** The viewer tree and `flow:show` render each span's stored
+  `message`, `context`, and `result` — previously written to `flow_spans` but never displayed.
+  The viewer shows a muted `key=value` line under the span row (only when the span carries
+  metadata; bare spans render exactly as before); `flow:show` appends the same pairs after the
+  status. Values are truncated at 120 chars, non-scalars JSON-encoded. Since failed spans record
+  the exception class/message in `result`, failures are now diagnosable at a glance on both
+  surfaces.
+
 ## [3.2.0] - 2026-06-11
 
 ### Added
