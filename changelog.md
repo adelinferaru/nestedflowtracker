@@ -3,7 +3,7 @@
 All notable changes to `nestedflowtracker` are documented here. This project follows
 [Semantic Versioning](https://semver.org) and [Keep a Changelog](https://keepachangelog.com).
 
-## [Unreleased]
+## [3.3.0] - 2026-07-29
 
 ### Added
 - **Span metadata is now visible.** The viewer tree and `flow:show` render each span's stored
